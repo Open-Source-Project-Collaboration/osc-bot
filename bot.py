@@ -57,7 +57,7 @@ async def on_raw_reaction_remove(message):
             #print(str(logs[i]) == str(message.message_id))
             if str(logs[i]) == str(message.message_id):
                 wichproject = logs[i+1]
-                #print(message.member.name + " is removed vote for " + wichproject)
+                print(message.member.name + " is removed vote for " + wichproject)
                 break
     projectlogs.close()
 bot.run('Token')
