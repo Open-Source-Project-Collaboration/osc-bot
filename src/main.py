@@ -1,6 +1,18 @@
+# api's
 import discord
 from discord.ext import commands
+
+# dotenv
+from os import path, environ
+from dotenv import load_dotenv
+
+# modules
 from ideas import setup_ideas
+
+
+# Get .env config
+dotenv_path = path.join(path.dirname(__file__), '.env')
+load_dotenv(dotenv_path)
 
 
 # Create bot
@@ -19,5 +31,4 @@ async def on_ready():
 
 
 # Run bot
-token = open('.token').read()
-bot.run(token)
+bot.run(environ.get('DISCORD_TOKEN'))
