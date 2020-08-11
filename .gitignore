@@ -1,0 +1,7 @@
+# Editor
+.vscode/
+
+# Env
+__pycache__/
+env/
+.token
