@@ -11,17 +11,17 @@ Therefore, CrunchBang needs 3 features:
 
 
 ## Admin interface
-- `#!set_idea_list {channel}`
+- `#!set_idea_channel {channel}`
     * This sets the channel to keep the ideas in,
     hereafter will be referred to as `idea list`.
-- `#!issue_action **args`
+- `#!issue_action {action name} **args`
     * This issues a predefined action with given arguments.
 - `#!action_list`
     * Prints a list of available actions.
 
 
 ## Member interface
-- `#!idea_list`
+- `#!idea_channel`
     * Returns the current channel used as the `idea list`.
     * With a prompt as to how to propose a new idea.
 - `#!new_idea {idea here}`
