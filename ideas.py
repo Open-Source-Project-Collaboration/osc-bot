@@ -1,14 +1,34 @@
+config = {
+    "idealist": "742718894690795550"
+}
+
 # Import function
 def setup_ideas(bot):
 
-    # Listen ideas channel
-    @bot.listen()
-    async def on_message(message):
-        channel = str(message.channel)
+    @bot.command()
+    async def idealist(ctx, chanid = ''):
 
-        if channel == 'ideas' and message.author != bot.user:
-            emoji = '\N{THUMBS UP SIGN}'
-            await message.add_reaction(emoji)
+        # Return current idea-list channel
+        if chanid == '':
+            chanid = config["idealist"]
+            return await ctx.send(
+                f'Current `idea-list` channel is <#{chanid}>!'
+            )
+
+        # get rid of '<#...>'
+        chanid = int(chanid[2:-1])
+
+        # Get the channel with id 'chanid'
+        chans = filter(
+            lambda x: x.id == chanid,
+            bot.get_all_channels()
+        )
+        chans = list(chans)
+        chan = chans[0]
+
+        # Set it as write channel
+        config["idealist"] = str(chan.id)
+        await ctx.send(f'`idea-list` channel is now <#{chan.id}>!')
 
 
     # Listen ideas emoji reactions
