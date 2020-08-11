@@ -11,7 +11,7 @@ from ideas import setup_ideas
 
 
 # Get .env config
-dotenv_path = path.join(path.dirname(__file__), '.env')
+dotenv_path = path.join(path.dirname(__file__), '../.env')
 load_dotenv(dotenv_path)
 
 
