@@ -18,12 +18,6 @@ async def on_ready():
     print('I\'m alive, my dear human :)')
 
 
-# new-idea command
-@bot.command()
-async def idea(ctx, name, description):
-    await ctx.send('I\'m on it bruh. Stand still...')
-
-
 # Run bot
 token = open('.token').read()
 bot.run(token)
