@@ -7,7 +7,7 @@ bot = commands.Bot(command_prefix=perfix)
 
 @bot.listen()
 async def on_message(message):
-    if message.content.lower()[0] == ":" :
+    if message.content.lower()[0] == "#!" :
         who = str(message.author)
         if "-" in message.content.lower():
             project = message.content.split("-")
