@@ -32,7 +32,7 @@ The CrunchBang, hence the name, uses `#!` as it's prefix for commands.
 Commands must be grouped using interfaces, which must be stored in different
 files.
 
-However, one interface can use the others' code by importing it.
+However, one interface can use others' code by importing it.
 
 
 ## For the "Admin interface"
