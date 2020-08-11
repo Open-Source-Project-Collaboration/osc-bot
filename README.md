@@ -3,7 +3,7 @@
 The best bot ever!
 
 
-# Running it
+## Running it
 
 1. Get your stuff organized:
 ``` shell
@@ -19,5 +19,12 @@ $ source env/bin/activate
 
 3. Run the project
 ``` shell
-(env) $ python bot.py
+(env) $ python src/main.py
+I'm alive, my dear human :)
 ```
+
+
+## Development
+
+Docs are [here](docs/01%20-%20How%20Does%20it%20Work.md). Upon any feature
+request/bugs create an issue please.
