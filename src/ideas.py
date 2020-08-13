@@ -52,9 +52,7 @@ def setup_ideas(bot):
 
         # Remove stuff
         if reaction.emoji.name != '👍':
-            if reaction.member.guild_permissions.administrator:
-                pass
-            else:
+            if not reaction.member.guild_permissions.administrator:
                 await message.remove_reaction(reaction.emoji, reaction.member)
                 await channel.send(
                     content='You can\'t use that! Please use 👍 only!',
