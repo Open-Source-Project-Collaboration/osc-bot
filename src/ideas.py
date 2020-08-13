@@ -52,11 +52,14 @@ def setup_ideas(bot):
 
         # Remove stuff
         if reaction.emoji.name != '👍':
-            await message.remove_reaction(reaction.emoji, reaction.member)
-            await channel.send(
-                content='You can\'t use that! Please use 👍 only!',
-                delete_after=10.0
-            )
+            if reaction.member.guild_permissions.administrator:
+                pass
+            else:
+                await message.remove_reaction(reaction.emoji, reaction.member)
+                await channel.send(
+                    content='You can\'t use that! Please use 👍 only!',
+                    delete_after=10.0
+                )
 
 
     # Purging ideas
