@@ -13,7 +13,7 @@ def setup_admin_interface(bot):
         await ctx.message.delete()
 
     # Sets the current channel that is used for ideas
-    @bot.command(brief='Sets the current channel that is used for ideas')
+    @bot.command(brief='Sets the channel that is used for ideas', hidden=True)
     async def set_idea_channel(ctx, chanid):
 
         # Check admin
