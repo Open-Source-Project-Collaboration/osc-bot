@@ -2,11 +2,11 @@ config = {
     "idealist": "742718894690795550"
 }
 
+
 # Import function
 def setup_ideas(bot):
-
-    @bot.command()
-    async def idealist(ctx, chanid = ''):
+    @bot.command(brief='Shows the current channel that is used for ideas')
+    async def idealist(ctx, chanid=''):
 
         # Return current idea-list channel
         if chanid == '':
@@ -30,15 +30,14 @@ def setup_ideas(bot):
         config["idealist"] = str(chan.id)
         await ctx.send(f'`idea-list` channel is now <#{chan.id}>!')
 
-    #@bot.command()
-    #async def set_idea_channel(message,channel):
+    # @bot.command()
+    # async def set_idea_channel(message,channel):
 
     # Listen ideas emoji reactions
     @bot.event
     async def on_raw_reaction_add(reaction):
         channel = bot.get_channel(reaction.channel_id)
 
-        message = None
         try:
             message = await channel.fetch_message(reaction.message_id)
         except e:
@@ -51,17 +50,15 @@ def setup_ideas(bot):
             return
 
         # Remove stuff
-        if reaction.emoji.name != '👍':
-            if not reaction.member.guild_permissions.administrator:
-                await message.remove_reaction(reaction.emoji, reaction.member)
-                await channel.send(
-                    content='You can\'t use that! Please use 👍 only!',
-                    delete_after=10.0
-                )
-
+        if reaction.emoji.name != '👍' and not reaction.member.guild_permissions.administrator:
+            await message.remove_reaction(reaction.emoji, reaction.member)
+            await channel.send(
+                content='You can\'t use that! Please use 👍 only!',
+                delete_after=10.0
+            )
 
     # Purging ideas
-    @bot.command('purge')
+    @bot.command('purge', hidden=True)
     async def purge(message):
         if message.author.guild_permissions.administrator:
             if str(message.channel.id) == config['idealist']:
