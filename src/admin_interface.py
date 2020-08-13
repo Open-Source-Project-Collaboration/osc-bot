@@ -1,3 +1,5 @@
+
+
 config = {
     'idea-channel': '742718894690795550'
 }
@@ -19,15 +21,13 @@ def setup_admin_interface(bot):
             return await you_are_not_admin(ctx)
 
         # Get rid of '<#...>'
-        chanid = int(chanid[2:-1])
-
-        # Check if channel exists
-        if bot.get_channel(chanid) is None:
-            return await ctx.send(f'The specified channel was not found')
-
-        # Set it as write channel
-        config['idea-channel'] = str(chanid)
-        await ctx.send(f'Idea channel channel is now <#{chanid}>!')
+        try:
+            chanid = int(chanid[2:-1])
+            # Set it as write channel
+            config['idea-channel'] = str(chanid)
+            await ctx.send(f'Idea channel channel is now <#{chanid}>!')
+        except ValueError:
+            return await ctx.send(f'The specified channel was not found, did you add a # before the channel name?')
 
     # Purges ideas
     @bot.command(hidden=True)
