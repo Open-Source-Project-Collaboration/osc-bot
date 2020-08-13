@@ -37,7 +37,7 @@ def setup_ideas(bot):
         else:
             await no_permission(ctx, "you do not have permission to do that.")
 
-    @bot.command(name="addidea", brief="Adds a new idea to the ideas channel")
+    @bot.command(name="new_idea", brief="Adds a new idea to the ideas channel")
     async def add_idea(ctx, idea_name='', idea_description=''):
         author_mention = ctx.author.mention
         if idea_name == '':
