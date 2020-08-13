@@ -29,8 +29,8 @@ def setup_admin_interface(bot):
             return await ctx.send(f'`idea-list` channel is now <#{chan.id}>!')
 
         # Set it as write channel
-        config["idealist"] = str(chanid)
-        await ctx.send(f'`idea-list` channel is now <#{chanid}>!')
+        config['idea-channel'] = str(chanid)
+        await ctx.send(f'Idea channel channel is now <#{chanid}>!')
 
 
     # Purges ideas
