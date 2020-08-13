@@ -30,6 +30,8 @@ def setup_ideas(bot):
         config["idealist"] = str(chan.id)
         await ctx.send(f'`idea-list` channel is now <#{chan.id}>!')
 
+    #@bot.command()
+    #async def set_idea_channel(message,channel):
 
     # Listen ideas emoji reactions
     @bot.event
@@ -61,10 +63,10 @@ def setup_ideas(bot):
     @bot.command('purge')
     async def purge(message):
         if message.author.guild_permissions.administrator:
-            if str(message.channel) == 'ideas':
+            if str(message.channel.id) == config['idealist']:
                 await message.channel.purge()
         else:
-            if str(message.channel) == 'ideas':
+            if str(message.channel.id) == config['idealist']:
                 await message.channel.send(
                     content='Ops! {0} can\'t use that! \n_Only Admins!_'.format(message.author.mention),
                     delete_after=10.0
