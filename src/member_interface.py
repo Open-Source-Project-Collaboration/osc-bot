@@ -20,5 +20,5 @@ def setup_member_interface(bot):
         chanid = int(config['idea-channel'])
         chan = bot.get_channel(chanid)
 
-        msg = await chan.send(f'{ctx.author.mention} proposed:\n> `{idea}` in `{lang}`')
+        msg = await chan.send(f'{ctx.author.mention} proposed an idea:\n> {idea}\n In `{lang}`')
         await msg.add_reaction('👍')
