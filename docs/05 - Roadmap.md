@@ -20,7 +20,7 @@
 2.4) If participant vote reaches 4 new channels are created and project is removed from ideas channel. All the voters who didnt participate receive warning. they can only not participate to voted project three times before kicked. 
 Project is displayed on current projects with github link and brief description if enough vote reached in DM.
 
-If not enough voting is made idea votes removed from ideas channel , voting is carried on to following two weeks snd check of votes greater than 5 is checked for other two weeks.
+If not enough voting is made idea votes removed from ideas channel for inactive users , voting is carried on to following two weeks snd check of votes greater than 5 is checked for other two weeks. inactive members can reoeat this behaviour 3 tikes before they get kick. in case of kick all their votes are removed from all ideas.
 
 if after two more weeks any project exceeds voting limit DM send again.
 
