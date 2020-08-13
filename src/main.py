@@ -7,7 +7,8 @@ from os import path, environ
 from dotenv import load_dotenv
 
 # modules
-from ideas import setup_ideas
+from member_interface import setup_member_interface
+from admin_interface import setup_admin_interface
 
 
 # Get .env config
@@ -20,8 +21,9 @@ prefix = '#!'
 bot = commands.Bot(command_prefix=prefix)
 
 
-# Setup modules
-setup_ideas(bot)
+# Setup interfaces
+setup_member_interface(bot)
+setup_admin_interface(bot)
 
 
 # Startup
