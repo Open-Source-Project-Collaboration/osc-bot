@@ -5,6 +5,11 @@ config = {
 
 # Import function
 def setup_ideas(bot):
+
+    async def no_permission(ctx, message_to_show):
+        await ctx.send(ctx.author.mention + ", " + message_to_show, delete_after=5.0)
+        await ctx.message.delete()
+
     @bot.command(brief='Shows the current channel that is used for ideas')
     async def idealist(ctx, chanid=''):
 
@@ -14,24 +19,24 @@ def setup_ideas(bot):
             return await ctx.send(
                 f'Current `idea-list` channel is <#{chanid}>!'
             )
+        if ctx.author.guild_permissions.administrator:
 
-        # get rid of '<#...>'
-        chanid = int(chanid[2:-1])
+            # get rid of '<#...>'
+            chanid = int(chanid[2:-1])
 
-        # Get the channel with id 'chanid'
-        chans = filter(
-            lambda x: x.id == chanid,
-            bot.get_all_channels()
-        )
-        chans = list(chans)
-        chan = chans[0]
+            # Get the channel with id 'chanid'
+            chans = filter(
+                lambda x: x.id == chanid,
+                bot.get_all_channels()
+            )
+            chans = list(chans)
+            chan = chans[0]
 
-        # Set it as write channel
-        config["idealist"] = str(chan.id)
-        await ctx.send(f'`idea-list` channel is now <#{chan.id}>!')
-
-    # @bot.command()
-    # async def set_idea_channel(message,channel):
+            # Set it as write channel
+            config["idealist"] = str(chan.id)
+            await ctx.send(f'`idea-list` channel is now <#{chan.id}>!')
+        else:
+            await no_permission(ctx, "you do not have permission to do that.")
 
     # Listen ideas emoji reactions
     @bot.event
@@ -54,18 +59,14 @@ def setup_ideas(bot):
             await message.remove_reaction(reaction.emoji, reaction.member)
             await channel.send(
                 content='You can\'t use that! Please use 👍 only!',
-                delete_after=10.0
+                delete_after=5.0
             )
 
     # Purging ideas
-    @bot.command('purge', hidden=True)
-    async def purge(message):
-        if message.author.guild_permissions.administrator:
-            if str(message.channel.id) == config['idealist']:
-                await message.channel.purge()
-        else:
-            if str(message.channel.id) == config['idealist']:
-                await message.channel.send(
-                    content='Ops! {0} can\'t use that! \n_Only Admins!_'.format(message.author.mention),
-                    delete_after=10.0
-                )
+    @bot.command(hidden=True)
+    async def purge(ctx):  # Used to delete the messages in the ideas channel
+        if str(ctx.channel.id) == config['idealist']:
+            if ctx.author.guild_permissions.administrator:
+                await ctx.channel.purge()
+            else:
+                await no_permission(ctx, "you do not have permission to do that")
