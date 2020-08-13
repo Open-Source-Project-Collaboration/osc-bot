@@ -9,9 +9,7 @@ def setup_admin_interface(bot):
 
     # Yells at the member for not being an admin
     async def you_are_not_admin(ctx):
-        await ctx.send(
-            f'WHAT ARE YOU DOING YOU F***ING {ctx.author.mention} C*CK'
-        )
+        await ctx.send(f'**You can\'t do that {ctx.author.mention}!**')
         await ctx.message.delete()
 
 
