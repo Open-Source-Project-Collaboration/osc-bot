@@ -5,13 +5,10 @@ config = {
 
 # Setup function
 def setup_admin_interface(bot):
-
-
     # Yells at the member for not being an admin
     async def you_are_not_admin(ctx):
         await ctx.send(f'**You can\'t do that {ctx.author.mention}!**')
         await ctx.message.delete()
-
 
     # Sets the current channel that is used for ideas
     @bot.command(brief='Sets the current channel that is used for ideas')
@@ -19,19 +16,18 @@ def setup_admin_interface(bot):
 
         # Check admin
         if not ctx.author.guild_permissions.administrator:
-            return you_are_not_admin(ctx)
+            return await you_are_not_admin(ctx)
 
         # Get rid of '<#...>'
         chanid = int(chanid[2:-1])
 
         # Check if channel exists
-        if bot.get_channel(chanid) == None:
-            return await ctx.send(f'`idea-list` channel is now <#{chan.id}>!')
+        if bot.get_channel(chanid) is None:
+            return await ctx.send(f'The specified channel was not found')
 
         # Set it as write channel
         config['idea-channel'] = str(chanid)
         await ctx.send(f'Idea channel channel is now <#{chanid}>!')
-
 
     # Purges ideas
     @bot.command(hidden=True)
