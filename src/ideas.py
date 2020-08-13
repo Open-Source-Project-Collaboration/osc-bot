@@ -60,5 +60,12 @@ def setup_ideas(bot):
     # Purging ideas
     @bot.command('purge')
     async def purge(message):
-        if str(message.channel) == 'ideas':
-            await message.channel.purge()
+        if message.author.guild_permissions.administrator:
+            if str(message.channel) == 'ideas':
+                await message.channel.purge()
+        else:
+            if str(message.channel) == 'ideas':
+                await message.channel.send(
+                    content='Ops! {0} can\'t use that! \n_Only Admins!_'.format(message.author.mention),
+                    delete_after=10.0
+                )
