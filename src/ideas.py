@@ -5,13 +5,12 @@ config = {
 
 # Import function
 def setup_ideas(bot):
-
-    async def no_permission(ctx, message_to_show):
+    async def no_permission(ctx, message_to_show):  # Shows the user that he has no permission to do something
         await ctx.send(ctx.author.mention + ", " + message_to_show, delete_after=5.0)
         await ctx.message.delete()
 
     @bot.command(brief='Shows the current channel that is used for ideas')
-    async def idealist(ctx, chanid=''):
+    async def idealist(ctx, chanid=''):  # Shows the idea channel and changes it if an argument is given by an admin
 
         # Return current idea-list channel
         if chanid == '':
@@ -38,20 +37,35 @@ def setup_ideas(bot):
         else:
             await no_permission(ctx, "you do not have permission to do that.")
 
+    @bot.command(name="new_idea", brief="Adds a new idea to the ideas channel")
+    async def add_idea(ctx, idea_name='', idea_description=''):
+        author_mention = ctx.author.mention
+        if idea_name == '':
+            return await ctx.send(author_mention + ", please add a name for your idea")
+        if idea_description == '':
+            return await ctx.send(author_mention + ", please add a description for your idea")
+        idea_channel = bot.get_channel(int(config["idealist"]))
+        await idea_channel.send(
+            "**A new idea has been added, please vote using a thumbs up if you wish to participate.**"
+            + "\n\n **Idea name: **" + idea_name
+            + "\n\n **Idea description: **" + idea_description
+            + "\n\n **Added by: **" + author_mention
+        )
+
     # Listen ideas emoji reactions
     @bot.event
     async def on_raw_reaction_add(reaction):
+        # Sees the reactions added and removes the ones that are not thumbs up in the ideas channel
         channel = bot.get_channel(reaction.channel_id)
 
         try:
             message = await channel.fetch_message(reaction.message_id)
         except e:
+            print("error")
             return
 
         # Check stuff
         if str(channel) != 'ideas':
-            return
-        elif message.author == bot.user:
             return
 
         # Remove stuff
