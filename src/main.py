@@ -22,7 +22,7 @@ bot = commands.Bot(command_prefix=prefix)
 
 
 # Setup interfaces
-setup_member_interface(bot)
+setup_member_interface(bot,discord)
 setup_admin_interface(bot)
 
 

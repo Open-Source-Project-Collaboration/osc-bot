@@ -37,24 +37,3 @@ def setup_admin_interface(bot):
 
         # Purge ideas
         await ctx.channel.purge()
-
-    @bot.event
-    async def on_raw_reaction_add(reaction):
-        channel = bot.get_channel(reaction.channel_id)
-        message = await channel.fetch_message(reaction.message_id)
-        # Check stuff
-        if str(channel.id) != config['idea-channel']:
-            return
-        if reaction.emoji.name != '👍' and not reaction.member.guild_permissions.administrator:
-            await message.remove_reaction(reaction.emoji, reaction.member)
-            await channel.send(
-                content=reaction.member.mention + ', you can\'t use that! Please use 👍 only!',
-                delete_after=3.0
-            )
-        elif message.mentions[0] == reaction.member:
-            warn = ", you can't vote on your own idea, and you can't react to any message you were mentioned in here"
-            await message.remove_reaction(reaction.emoji, reaction.member)
-            await channel.send(
-                content=reaction.member.mention + warn,
-                delete_after=5.0
-            )
