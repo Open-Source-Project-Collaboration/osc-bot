@@ -1,5 +1,3 @@
-
-
 config = {
     'idea-channel': '742718894690795550'
 }
@@ -9,7 +7,7 @@ config = {
 def setup_admin_interface(bot):
     # Yells at the member for not being an admin
     async def you_are_not_admin(ctx):
-        await ctx.send(f'**You can\'t do that {ctx.author.mention}!**')
+        await ctx.send(f'**You can\'t do that {ctx.author.mention}!**', delete_after=3.0)
         await ctx.message.delete()
 
     # Sets the current channel that is used for ideas
@@ -35,7 +33,21 @@ def setup_admin_interface(bot):
 
         # Check admin
         if not ctx.author.guild_permissions.administrator:
-            return you_are_not_admin(ctx)
+            return await you_are_not_admin(ctx)
 
         # Purge ideas
         await ctx.channel.purge()
+
+    @bot.event
+    async def on_raw_reaction_add(reaction):
+        channel = bot.get_channel(reaction.channel_id)
+        message = await channel.fetch_message(reaction.message_id)
+        # Check stuff
+        if str(channel.id) != config['idea-channel']:
+            return
+        if reaction.emoji.name != '👍' and not reaction.member.guild_permissions.administrator:
+            await message.remove_reaction(reaction.emoji, reaction.member)
+            await channel.send(
+                content=reaction.member.mention + ', you can\'t use that! Please use 👍 only!',
+                delete_after=3.0
+            )
