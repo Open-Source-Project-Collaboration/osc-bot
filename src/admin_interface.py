@@ -51,3 +51,10 @@ def setup_admin_interface(bot):
                 content=reaction.member.mention + ', you can\'t use that! Please use 👍 only!',
                 delete_after=3.0
             )
+        elif message.mentions[0] == reaction.member:
+            warn = ", you can't vote on your own idea, and you can't react to any message you were mentioned in here"
+            await message.remove_reaction(reaction.emoji, reaction.member)
+            await channel.send(
+                content=reaction.member.mention + warn,
+                delete_after=5.0
+            )
