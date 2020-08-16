@@ -45,16 +45,28 @@ def setup_admin_interface(bot):
         # Check stuff
         if str(channel.id) != config['idea-channel']:
             return
-        if reaction.emoji.name != '👍' and not reaction.member.guild_permissions.administrator:
+        voter = reaction.member  # The member who performed the reaction
+        if reaction.emoji.name != '👍' and not voter.guild_permissions.administrator:
+            # The member is not an admin
             await message.remove_reaction(reaction.emoji, reaction.member)
-            await channel.send(
-                content=reaction.member.mention + ', you can\'t use that! Please use 👍 only!',
+            return await channel.send(
+                content=voter.mention + ', you can\'t use that! Please use 👍 only!',
                 delete_after=3.0
             )
-        elif message.mentions[0] == reaction.member:
-            warn = ", you can't vote on your own idea, and you can't react to any message you were mentioned in here"
-            await message.remove_reaction(reaction.emoji, reaction.member)
-            await channel.send(
-                content=reaction.member.mention + warn,
-                delete_after=5.0
-            )
+        if reaction.member not in message.mentions:
+            await message.edit(content=message.content + "\n" + voter.mention)
+
+    @bot.event
+    async def on_raw_reaction_remove(reaction):
+        channel = bot.get_channel(reaction.channel_id)
+        message = await channel.fetch_message(reaction.message_id)
+        # Check stuff
+        if str(channel.id) != config['idea-channel']:
+            return
+
+        vote_remover_id = reaction.user_id  # Because there is no reaction.member when removing reactions
+        vote_remover = await bot.fetch_user(vote_remover_id)
+        if vote_remover_id != message.mentions[0].id:  # If the vote remover isn't the user who proposed the idea
+            new_content = message.content.replace(vote_remover.mention, '')
+            # Removes the member.mention who removed their reaction from the voters
+            await message.edit(content=new_content)
