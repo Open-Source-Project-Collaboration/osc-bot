@@ -53,7 +53,7 @@ def setup_admin_interface(bot):
                 content=voter.mention + ', you can\'t use that! Please use 👍 only!',
                 delete_after=3.0
             )
-        if reaction.member not in message.mentions:
+        if reaction.member not in message.mentions and "Voters" in message.content:
             await message.edit(content=message.content + "\n" + voter.mention)
 
     @bot.event
