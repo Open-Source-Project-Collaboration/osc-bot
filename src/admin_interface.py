@@ -1,5 +1,7 @@
 config = {
-    'idea-channel': '742718894690795550'
+    'idea-channel': '744885478188384287',
+    'overview-channel': '744885556613480509',
+    'suggestions-channel': '744885520638804026'
 }
 
 
@@ -12,20 +14,58 @@ def setup_admin_interface(bot):
 
     # Sets the current channel that is used for ideas
     @bot.command(brief='Sets the channel that is used for ideas', hidden=True)
-    async def set_idea_channel(ctx, chanid):
+    async def set_idea_channel(ctx):
 
         # Check admin
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
 
-        # Get rid of '<#...>'
-        try:
-            chanid = int(chanid[2:-1])
-            # Set it as write channel
-            config['idea-channel'] = str(chanid)
-            await ctx.send(f'Idea channel channel is now <#{chanid}>!')
-        except ValueError:
-            return await ctx.send(f'The specified channel was not found, did you add a # before the channel name?')
+        if ctx.message.channel_mentions:
+            channel = ctx.message.channel_mentions[0]
+        else:
+            return await ctx.send("Please enter a valid channel name, did you remember " +
+                                  "to add a # before the channel name?")
+
+        chanid = channel.id
+        # Set it as write channel
+        config['idea-channel'] = str(chanid)
+        await ctx.send(f'Idea channel channel is now <#{chanid}>!')
+
+    @bot.command(hidden=True)
+    async def set_overview_channel(ctx):
+
+        # Check admin
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+
+        if ctx.message.channel_mentions:
+            channel = ctx.message.channel_mentions[0]
+        else:
+            return await ctx.send("Please enter a valid channel name, did you remember " +
+                                  "to add a # before the channel name?")
+
+        chanid = channel.id
+        # Set it as write channel
+        config['overview-channel'] = str(chanid)
+        await ctx.send(f'The idea overview channel is now <#{chanid}>!')
+
+    @bot.command(hidden=True)
+    async def set_suggestions_channel(ctx):
+
+        # Check admin
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+
+        if ctx.message.channel_mentions:
+            channel = ctx.message.channel_mentions[0]
+        else:
+            return await ctx.send("Please enter a valid channel name, did you remember " +
+                                  "to add a # before the channel name?")
+
+        chanid = channel.id
+        # Set it as write channel
+        config['suggestions-channel'] = str(chanid)
+        await ctx.send(f'The idea suggestions channel is now <#{chanid}>!')
 
     # Purges ideas
     @bot.command(hidden=True)
@@ -53,7 +93,8 @@ def setup_admin_interface(bot):
                 content=voter.mention + ', you can\'t use that! Please use 👍 only!',
                 delete_after=3.0
             )
-        if reaction.member not in message.mentions and "Voters" in message.content:
+        if reaction.member not in message.mentions and reaction.emoji.name == '👍' and message.author.bot\
+                and not reaction.member.bot:
             await message.edit(content=message.content + "\n" + voter.mention)
 
     @bot.event
