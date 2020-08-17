@@ -10,20 +10,26 @@ MIN_VOTES = 1
 
 # Setup function
 def setup_member_interface(bot):
-    # Show currently used idea channel
+
+
+    # Show channels
     @bot.command(brief="Use this to view all the channels that are related to the voting process")
-    async def channels(ctx):  # To view all the channels related to the idea voting process
-        ideas_id = config['idea-channel']
-        suggestions_id = config['suggestions-channel']
-        overview_id = config['overview-channel']
-        await ctx.send(f'The current channel that is used to vote on ideas is <#{ideas_id}>\n' +
-                       f'The current channel that is used to suggest ideas is <#{suggestions_id}>\n' +
-                       f'The current channel that is show the voting results is <#{overview_id}>')
+    async def channels(ctx):
+        msgs = [f'{key} channel is <#{config[key]}>' for key in config.keys()]
+        msg  = '\n'.join(msgs)
+        await ctx.send(msg)
 
+
+    # Asks user for github
     async def get_github(voter, idea):  # TODO: Complete function
-        voter.send("Hello,\nYou have voted on the following idea:\n```" + idea +
-                   "```\nPlease send me your GitHub profile link so I can add you to the project team.")
+        await voter.send(f"""
+            Hello!
+            We noticed that you have voted for {idea}
+            Please send me your GitHub profile link so I can add you to the project team
+        """)
 
+
+    # Watches a vote for 14 days
     async def wait_for_votes(message_id, channel, idea):
         voters = ''  # A string that will contain the voters names each one below the other
         five_check_marks = CHECK_MARK_EMOJI * 5  # Emojis
@@ -70,25 +76,35 @@ def setup_member_interface(bot):
             )
             return await message.delete()
 
+
     # Proposes a new idea to idea channel
-    @bot.command(brief="Adds a new idea to the ideas channel",
-                 description="Adds a new idea to the ideas channel takes the programming language as a first argument, \
-                 and the idea explanation as a second argument")
-    async def new_idea(ctx, lang='', idea=''):
+    @bot.command(brief="Adds a new idea to the ideas channel")
+    async def new_idea(ctx, lang, idea):
+
+        # Check fields
+        if not lang or not idea:
+            return await ctx.send(f'{ctx.author.mention} fields are invalid!')
+
+        # Get channel
         chanid = int(config['idea-channel'])
-        suggestions_id = int(config['suggestions-channel'])
         chan = bot.get_channel(chanid)
-        author_mention = ctx.author.mention
-        # Check if the user suggested the idea in the idea suggestions channel
-        if ctx.message.channel.id != suggestions_id:
-            return await ctx.send(author_mention + ", please suggest your ideas in <#" + str(suggestions_id) + ">!")
-        if lang == '':
-            return await ctx.send(author_mention + ", please input the language name as the first argument")
-        if idea == '':
-            return await ctx.send(author_mention + ", please input the explanation for the idea as a second argument")
-        msg = await chan.send(
-            f'{ROCKET_EMOJI * 5} \n\n {ctx.author.mention} proposed an idea:\
-            \n```{idea}```\nProgramming Language: `{lang}`\n**Voters:**\n'
-        )
+        if chan == None:
+            return await ctx.send('Channel does not exists')
+
+        # Generate a name from idea
+        gen_name = '-'.join(idea.split(' '))
+
+        # Create a role for it
+        role = await ctx.guild.create_role(name=gen_name)
+
+        # Add the proposer
+        await ctx.author.add_roles(role)
+
+        # Notify with embed
+        embed = discord.Embed(title=gen_name, color=0x00ff00)
+        embed.add_field(name='Language', value=lang)
+        msg = await chan.send(f'{ctx.author.mention}', embed=embed)
         await msg.add_reaction('👍')
+
+        # Watch it
         await wait_for_votes(msg.id, chan, idea)
