@@ -38,3 +38,6 @@ However, one interface can use others' code by importing it.
 
 Commands that require `Admin` role must go under this category. Other commands
 must be available to all members.
+
+
+> Next, read [SQL Interface](04%20-%20SQL%20Interface.md)
