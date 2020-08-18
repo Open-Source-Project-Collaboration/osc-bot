@@ -30,7 +30,6 @@ setup_admin_interface(bot)
 from config import Config
 Config.set_init('idea-channel', '744885478188384287')
 Config.set_init('overview-channel', '744885556613480509')
-Config.set_init('suggestions-channel', '744885520638804026')
 
 
 # Startup

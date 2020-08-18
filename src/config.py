@@ -23,7 +23,8 @@ class Config(Base):
 
     # Static interface
     def get(name):
-        return session.query(Config).filter_by(name=name).first()
+        config = session.query(Config).filter_by(name=name).first()
+        return config.value if config else None
 
     def set(name, value):
         config = Config.get(name)
@@ -41,6 +42,16 @@ class Config(Base):
         if config != None:
             return
         Config.set(name, value)
+
+    def channels():
+        chans = session.query(Config).all()
+        chans = filter(lambda chan: chan.name.endswith('-channel'), chans)
+
+        diction = {}
+        for chan in chans:
+            diction[chan.name] = chan.value
+
+        return diction
 
 
 # Create tables

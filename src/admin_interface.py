@@ -1,8 +1,4 @@
-config = {
-    'idea-channel': '744885478188384287',
-    'overview-channel': '744885556613480509',
-    'suggestions-channel': '744885520638804026'
-}
+from config import Config
 
 
 # Setup function
@@ -30,7 +26,7 @@ def setup_admin_interface(bot):
             return await ctx.send(f'Channel {id} does not exist!')
 
         # Set it as write channel
-        config[f'{name}-channel'] = str(id_int)
+        Config.set(f'{name}-channel', str(id_int))
         await ctx.send(f'`{name}` channel is now {id}!')
 
 
@@ -42,5 +38,12 @@ def setup_admin_interface(bot):
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
 
+        # Get idea channel
+        chanid = Config.get('idea-channel')
+        chanid = int(chanid)
+        chan = bot.get_channel(chanid)
+        if chan == None:
+            return await ctx.send('Idea channel is not set!')
+
         # Purge ideas
-        await ctx.channel.purge()
+        await chan.purge()
