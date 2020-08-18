@@ -1,11 +1,10 @@
 import asyncio
-from admin_interface import config
+from config import Config
 import discord.ext.commands.errors
 
 TIME_TO_WAIT = 10
-ROCKET_EMOJI = '\U0001F680'
 CHECK_MARK_EMOJI = '\U0001F973'
-MIN_VOTES = 1
+REQ_VOTES = 4
 
 
 # Setup function
@@ -15,66 +14,10 @@ def setup_member_interface(bot):
     # Show channels
     @bot.command(brief="Use this to view all the channels that are related to the voting process")
     async def channels(ctx):
-        msgs = [f'{key} channel is <#{config[key]}>' for key in config.keys()]
+        chans = Config.channels()
+        msgs = [f'{name} channel is <#{chans[name]}>' for name in chans.keys()]
         msg  = '\n'.join(msgs)
         await ctx.send(msg)
-
-
-    # Asks user for github
-    async def get_github(voter, idea):  # TODO: Complete function
-        await voter.send(f"""
-            Hello!
-            We noticed that you have voted for {idea}
-            Please send me your GitHub profile link so I can add you to the project team
-        """)
-
-
-    # Watches a vote for 14 days
-    async def wait_for_votes(message_id, channel, idea):
-        voters = ''  # A string that will contain the voters names each one below the other
-        five_check_marks = CHECK_MARK_EMOJI * 5  # Emojis
-        message = await channel.fetch_message(message_id)  # The idea message (sent by the bot)
-        overview_id = int(config['overview-channel'])  # The idea overview channel
-        suggestions_id = int(config['suggestions-channel'])
-        suggestions_channel = await bot.fetch_channel(suggestions_id)  # The channel at which the user suggested an idea
-        try:
-            overview_channel = await bot.fetch_channel(overview_id)  # The channel at which the results are shown
-
-            i = 0  # a variable to check for the number of trials to get enough votes for an idea
-            while i < 4:
-
-                await asyncio.sleep(TIME_TO_WAIT)
-                message = await channel.fetch_message(message_id)  # Gets the ideas message containing the votes
-
-                if len(message.mentions) >= MIN_VOTES:  # If there are enough votes
-                    for voter in message.mentions:  # For each voter, add them to the voters string in a list form
-                        voters += voter.mention + "\n"  # TODO: ask each voter for GitHub account link
-                    await overview_channel.send(
-                        five_check_marks + "\n\nVoting for the following idea has ended:\n```" + idea +
-                        "```\nParticipants:\n" +
-                        voters
-                    )  # Sends the voting results to the overview channel
-                    return await message.delete()
-
-                else:  # If the votes aren't enough
-                    await overview_channel.send(
-                        "Voting for the following idea was not enough, waiting for more votes: \n```"
-                        + idea + "```"
-                    )  # Wait for more votes and repeat the cycle (3 times)
-
-                i += 1
-
-            # This is reached when the cycle is repeated three times and there aren't enough votes
-            await overview_channel.send(
-                "The following idea has been cancelled due to lack of interest: \n```" + idea + "```")
-            await message.delete()  # Deletes the idea
-
-        except discord.NotFound:  # If the overview channel is not found
-            await suggestions_channel.send(
-                message.mentions[0].mention +
-                ", there has been an error processing your idea, please contact an administrator"
-            )
-            return await message.delete()
 
 
     # Proposes a new idea to idea channel
@@ -86,10 +29,11 @@ def setup_member_interface(bot):
             return await ctx.send(f'{ctx.author.mention} fields are invalid!')
 
         # Get channel
-        chanid = int(config['idea-channel'])
+        chanid = Config.get('idea-channel')
+        chanid = int(chanid)
         chan = bot.get_channel(chanid)
-        if chan == None:
-            return await ctx.send('Channel does not exists')
+        if chanid == None:
+            return await ctx.send('Idea channel is not!')
 
         # Generate a name from idea
         gen_name = '-'.join(idea.split(' '))
@@ -107,4 +51,54 @@ def setup_member_interface(bot):
         await msg.add_reaction('👍')
 
         # Watch it
-        await wait_for_votes(msg.id, chan, idea)
+        await wait_for_votes(msg, role)
+
+
+    # Asks user for github
+    async def get_github(voter, role):  # TODO: Complete function
+        await voter.send(f"""
+            Hello!
+            We noticed that you have voted for {role.mention}
+            Please send your GitHub profile so I can add you to the team ^_^
+        """)
+
+
+    # Watches a vote for 14 days
+    async def wait_for_votes(msg, role):
+
+        # Get channels
+        overview_chan = Config.get('overview-channel')
+        overview_chan = int(overview_chan)
+        overview_chan = bot.get_channel(overview_chan)
+
+        # Trial count
+        for _ in range(4):
+
+            # Wait for 14 days
+            await asyncio.sleep(TIME_TO_WAIT)
+
+            # Check votes (-1 the bot)
+            if len(role.members) > REQ_VOTES:
+                await msg.delete()
+                return await overview_chan.send(f'''
+                    {CHECK_MARK_EMOJI * len(role.members)}
+
+                    Voting for {role.mention} has ended, **approved**!
+                    Participants: {role.mention}
+                ''')
+
+            # If the votes aren't enough
+            await overview_chan.send(
+                f'Votes for {role.mention} was not enough, waiting for more votes...'
+            )
+            continue # Wait 14 days more
+
+
+        # Trials end here
+        await overview_chan.send(
+            f'The {role.mention} has been cancelled due to lack of interest :('
+        )
+
+        # Delete the role with message
+        await role.delete()
+        await msg.delete()

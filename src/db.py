@@ -6,12 +6,13 @@ from os import environ
 
 # Create sqlalchemy engine
 engine = None
-if environ.get('ENV') == 'dev':
+env = environ.get('ENV') or 'dev'
+if env == 'dev':
     engine = create_engine('sqlite:///db.sqlite3')
 else:
     dbdb   = environ.get('DB_DB')
-    name = environ.get('DB_NAME')
-    pswd = environ.get('DB_PASS')
+    name   = environ.get('DB_NAME')
+    pswd   = environ.get('DB_PASS')
     engine = create_engine(f'postgresql://{name}:{pswd}@localhost/{dbdb}')
 
 
