@@ -47,8 +47,8 @@ async def on_raw_reaction_add(reaction):
     # Get the project role
     idea_id = int(Config.get('idea-channel'))
     chan = bot.get_channel(idea_id)
-    if reaction.channel_id == idea_id:
-        message = await chan.fetch_message(reaction.message_id)
+    message = await chan.fetch_message(reaction.message_id)
+    if reaction.channel_id == idea_id and message.author.bot:
         embed = message.embeds[0]
         guild = bot.get_guild(reaction.guild_id)
         member = guild.get_member(reaction.user_id)
@@ -65,13 +65,24 @@ async def on_raw_reaction_remove(reaction):
     # Get the project role
     chan = bot.get_channel(reaction.channel_id)
     message = await chan.fetch_message(reaction.message_id)
-    embed = message.embeds[0]
-    guild = bot.get_guild(reaction.guild_id)
-    member = guild.get_member(reaction.user_id)
-    role = discord.utils.get(guild.roles, name=embed.title)
+    idea_id = int(Config.get('idea-channel'))
+    if reaction.channel_id == idea_id and message.author.bot:
+        embed = message.embeds[0]
+        guild = bot.get_guild(reaction.guild_id)
+        member = guild.get_member(reaction.user_id)
+        role = discord.utils.get(guild.roles, name=embed.title)
+        # Remove user from role
 
-    # Remove user from role
-    await member.remove_roles(role)
+        if member == message.mentions[0]:  # If the reaction remover is the owner of the idea
+            if len(role.members) > 1:  # If there are members in the current role
+                new_content = message.content.replace(message.mentions[0].mention, role.members[1].mention)
+                await message.edit(content=new_content)
+                # Replace the owner with the second member in the role
+
+            else:
+                await message.edit(content=message.content.replace(message.mentions[1].mention, "No owner"))
+
+        await member.remove_roles(role)
 
 
 # Run bot
