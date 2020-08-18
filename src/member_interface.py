@@ -102,3 +102,31 @@ def setup_member_interface(bot):
         # Delete the role with message
         await role.delete()
         await msg.delete()
+
+    # Startup
+    @bot.event
+    async def on_ready():
+        print('I\'m alive, my dear human :)')
+        print("Checking for any unfinished ideas...")
+
+        idea_id = int(Config.get('idea-channel'))
+        idea_channel = bot.get_channel(idea_id)
+        overview_id = int(Config.get('overview-channel'))
+        overview_channel = bot.get_channel(overview_id)
+        messages = await idea_channel.history().flatten()
+        for message in messages:  # Loop through the messages in the ideas channel
+            if message.embeds:  # If the message is an idea message containing Embed
+                print("Found an unfinished idea")
+                idea_name = message.embeds[0].title  # The idea name is the title of the Embed
+                # Notify users
+                await overview_channel.send(f'There has been a problem processing `{idea_name}`\n' +
+                                            "The voting period was restarted but your votes are safe.")
+
+                for role in message.guild.roles:  # Loop through each role
+                    if role.name == idea_name:  # If there is a role for the idea
+                        return await wait_for_votes(message, role)
+
+                role = await message.guild.create_role(name=idea_name)  # This is reached when the role has been deleted
+                await wait_for_votes(message, role)
+
+        print("No unfinished ideas since last boot")
