@@ -18,8 +18,7 @@ but rather for pure configuration purposes.
 
 Current config data we hold are:
 
-- `idea-list-chan-id`: `empty`
-    * This holds the very id of our idea list channel
+- channel IDs
 
 The SQLAlchemy uses PostgreSQL on production whilst using sqlite on development
 environments. This can be set in the `.env` file by setting `ENV=dev` or

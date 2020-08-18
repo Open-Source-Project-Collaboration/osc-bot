@@ -11,9 +11,8 @@ Therefore, CrunchBang needs 3 features:
 
 
 ## Admin interface
-- `#!set_idea_channel {channel}`
-    * This sets the channel to keep the ideas in,
-    hereafter will be referred to as `idea list`.
+- `#!set_channel {channel}`
+    * This sets a channel in DB.
 - `#!issue_action {action name} **args`
     * This issues a predefined action with given arguments.
 - `#!action_list`
@@ -21,11 +20,10 @@ Therefore, CrunchBang needs 3 features:
 
 
 ## Member interface
-- `#!idea_channel`
-    * Returns the current channel used as the `idea list`.
-    * With a prompt as to how to propose a new idea.
-- `#!new_idea {idea here}`
-    * This creates a new idea in the `idea list` channel.
+- `#!channels`
+    * Lists the currently used channels by CrunchBang.
+- `#!new_idea {lang} {idea}`
+    * This creates a new idea in the `idea` channel.
     * This idea is watched for 14 days, if enough votes are present
     a GitHub repo, a team, with a discord channel group gets created.
     * The person who proposed the idea becomes the lead, others become team
