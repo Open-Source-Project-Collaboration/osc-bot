@@ -4,21 +4,18 @@ import discord.ext.commands.errors
 
 TIME_TO_WAIT = 10
 CHECK_MARK_EMOJI = '\U0001F973'
-REQ_VOTES = 4
+REQ_VOTES = 1
 
 
 # Setup function
 def setup_member_interface(bot):
-
-
     # Show channels
     @bot.command(brief="Use this to view all the channels that are related to the voting process")
     async def channels(ctx):
         chans = Config.channels()
         msgs = [f'{name} channel is <#{chans[name]}>' for name in chans.keys()]
-        msg  = '\n'.join(msgs)
+        msg = '\n'.join(msgs)
         await ctx.send(msg)
-
 
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
@@ -32,8 +29,8 @@ def setup_member_interface(bot):
         chanid = Config.get('idea-channel')
         chanid = int(chanid)
         chan = bot.get_channel(chanid)
-        if chanid == None:
-            return await ctx.send('Idea channel is not!')
+        if not chanid:
+            return await ctx.send('Idea channel is not available!')
 
         # Generate a name from idea
         gen_name = '-'.join(idea.split(' '))
@@ -53,7 +50,6 @@ def setup_member_interface(bot):
         # Watch it
         await wait_for_votes(msg, role)
 
-
     # Asks user for github
     async def get_github(voter, role):  # TODO: Complete function
         await voter.send(f"""
@@ -61,7 +57,6 @@ def setup_member_interface(bot):
             We noticed that you have voted for {role.mention}
             Please send your GitHub profile so I can add you to the team ^_^
         """)
-
 
     # Watches a vote for 14 days
     async def wait_for_votes(msg, role):
@@ -80,19 +75,21 @@ def setup_member_interface(bot):
             # Check votes (-1 the bot)
             if len(role.members) > REQ_VOTES:
                 await msg.delete()
-                return await overview_chan.send(f'''
-                    {CHECK_MARK_EMOJI * len(role.members)}
-
-                    Voting for {role.mention} has ended, **approved**!
-                    Participants: {role.mention}
-                ''')
+                participants = ''
+                for member in role.members:
+                    participants += member.mention + '\n'
+                return await overview_chan.send(
+                    f'''
+                    {CHECK_MARK_EMOJI * len(role.members)}\n\n''' +
+                    f'''Voting for {role.mention} has ended, **approved**!\n'''
+                    f'''Participants: {participants}
+                    ''')
 
             # If the votes aren't enough
             await overview_chan.send(
-                f'Votes for {role.mention} was not enough, waiting for more votes...'
+                f'Votes for {role.mention} were not enough, waiting for more votes...'
             )
-            continue # Wait 14 days more
-
+            continue  # Wait 14 days more
 
         # Trials end here
         await overview_chan.send(

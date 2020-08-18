@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 from member_interface import setup_member_interface
 from admin_interface import setup_admin_interface
 
+# Database
+from config import Config
+
 
 # Get .env config
 dotenv_path = path.join(path.dirname(__file__), '../.env')
@@ -27,7 +30,6 @@ setup_admin_interface(bot)
 
 
 # Set default configs
-from config import Config
 Config.set_init('idea-channel', '744885478188384287')
 Config.set_init('overview-channel', '744885556613480509')
 
@@ -43,15 +45,17 @@ async def on_ready():
 async def on_raw_reaction_add(reaction):
 
     # Get the project role
-    chan = bot.get_channel(reaction.channel_id)
-    message = await chan.fetch_message(reaction.message_id)
-    embed = message.embeds[0]
-    guild = bot.get_guild(reaction.guild_id)
-    member = guild.get_member(reaction.user_id)
-    role = discord.utils.get(guild.roles, name=embed.title)
+    idea_id = int(Config.get('idea-channel'))
+    chan = bot.get_channel(idea_id)
+    if reaction.channel_id == idea_id:
+        message = await chan.fetch_message(reaction.message_id)
+        embed = message.embeds[0]
+        guild = bot.get_guild(reaction.guild_id)
+        member = guild.get_member(reaction.user_id)
+        role = discord.utils.get(guild.roles, name=embed.title)
 
-    # Add user to role
-    await member.add_roles(role)
+        # Add user to role
+        await member.add_roles(role)
 
 
 # Watch for reaction remove
