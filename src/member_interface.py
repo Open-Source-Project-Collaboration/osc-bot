@@ -41,9 +41,10 @@ def setup_member_interface(bot):
 
         # Generate a name from idea
         gen_name = '-'.join(idea_name.split(' '))
-        lang = lang.replace('`', '').replace('"', '').replace('*', '').replace('_', '')
-        idea_explanation = idea_explanation.replace('`', '').replace('"', '').replace('*', '').replace('_', '')
-        gen_name = gen_name.replace('`', '').replace('"', '').replace('*', '').replace('_', '')
+        for item in ['`', '"', '*', '_']:
+            lang = lang.replace(item, '')
+            idea_explanation = idea_explanation.replace(item, '')
+            gen_name = gen_name.replace(item, '')
 
         role = discord.utils.get(ctx.guild.roles, name=gen_name)
         if role:
