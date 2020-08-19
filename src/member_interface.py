@@ -6,6 +6,7 @@ TIME_TO_WAIT = 10
 CHECK_MARK_EMOJI = '\U0001F973'
 REQ_VOTES = 0
 RESTART_EMOJI = '\U0001F504'
+THUMBS_UP_EMOJI = '\N{THUMBS UP SIGN}'
 
 
 # Setup function
@@ -45,79 +46,91 @@ def setup_member_interface(bot):
             lang = lang.replace(item, '')
             idea_explanation = idea_explanation.replace(item, '')
             gen_name = gen_name.replace(item, '')
+            idea_name = idea_name.replace(item, '')
 
+        # Check if there is an idea team with the current idea
         role = discord.utils.get(ctx.guild.roles, name=gen_name)
         if role:
             return await ctx.send(ctx.author.mention + ", this idea name already exists.")
 
+        # Check if there is currently a proposed idea with the same title
+        messages = await chan.history().flatten()
+        for message in messages:
+            if message.embeds and message.embeds[0].title == idea_name:
+                return await ctx.send(ctx.author.mention + ", this idea name already exists.")
+
         try:
-            # Create a role for it
-            role = await ctx.guild.create_role(name=gen_name)
-
-            # Add the proposer
-            await ctx.author.add_roles(role)
-
             # Notify with embed
-            embed = discord.Embed(title=gen_name, color=0x00ff00)
+            embed = discord.Embed(title=idea_name, color=0x00ff00)
             embed.add_field(name="Idea Explanation", value=idea_explanation)
             embed.add_field(name='Programming Language', value=lang, inline=False)
             msg = await chan.send(f'{ctx.author.mention} proposed an idea:', embed=embed)
             await msg.add_reaction('👍')
 
             # Watch it
-            await wait_for_votes(msg, role)
+            await wait_for_votes(msg.id, idea_name)
         except discord.HTTPException:
             await overview_channel.send(ctx.author.mention +
                                         ", an error has occurred while processing one of your ideas")
 
     # Asks user for github
-    async def get_github(voter, role):  # TODO: Complete function
+    async def get_github(voter, idea_name):  # TODO: Complete function
         await voter.send(f"""
             Hello!
-            We noticed that you have voted for {role.mention}
+            We noticed that you have voted for {idea_name}
             Please send your GitHub profile so I can add you to the team ^_^
         """)
 
     # Watches a vote for 14 days
-    async def wait_for_votes(msg, role):
+    async def wait_for_votes(message_id, idea_name):
 
         # Get channels
         overview_chan = Config.get('overview-channel')
         overview_chan = int(overview_chan)
         overview_chan = bot.get_channel(overview_chan)
+        idea_id = int(Config.get('idea-channel'))
+        idea_channel = bot.get_channel(idea_id)
+        msg = None
 
         # Trial count
         for _ in range(4):
 
             # Wait for 14 days
             await asyncio.sleep(TIME_TO_WAIT)
+            msg = await idea_channel.fetch_message(message_id)
+            voters_number = 0
+            participants = msg.mentions[0].mention  # Add the idea owner as an initial participant
+            for reaction in msg.reactions:
+                if reaction.emoji == THUMBS_UP_EMOJI:
+                    users = await reaction.users().flatten()  # Find the users of this reaction
+                    voters_number = len(users)
+                    for user in users:
+                        if user == msg.mentions[0]:  # If the user is the owner of the idea, continue
+                            continue
+                        participants += "\n" + user.mention
 
             # Check votes (-1 the bot)
-            if len(role.members) > REQ_VOTES:
+            if voters_number > REQ_VOTES:
                 await msg.delete()
-                participants = ''
-                for member in role.members:
-                    participants += member.mention + '\n'
                 return await overview_chan.send(
                     f'''
-                    {CHECK_MARK_EMOJI * len(role.members)}\n\n''' +
-                    f'''Voting for {role.mention} has ended, **approved**!\n'''
+                    {CHECK_MARK_EMOJI * voters_number}\n\n''' +
+                    f'''Voting for {idea_name} has ended, **approved**!\n'''
                     f'''Participants:\n{participants}
                     ''')
 
             # If the votes aren't enough
             await overview_chan.send(
-                f'Votes for `{role.name}` were not enough, waiting for more votes...'
+                f'Votes for `{idea_name}` were not enough, waiting for more votes...'
             )
             continue  # Wait 14 days more
 
         # Trials end here
         await overview_chan.send(
-            f'The `{role.name}` has been cancelled due to lack of interest :('
+            f'The `{idea_name}` idea has been cancelled due to lack of interest :('
         )
 
-        # Delete the role with message
-        await role.delete()
+        # Delete the message
         await msg.delete()
 
     # Startup
@@ -151,53 +164,40 @@ def setup_member_interface(bot):
         if message.author.bot and message.embeds:  # If the message reacted to is by the bot and contains an embed
             # ie: it is an idea message
             embed = message.embeds[0]
-            guild = bot.get_guild(reaction.guild_id)
 
-            if reaction.emoji.name == '\N{THUMBS UP SIGN}':  # If it is a thumbs up emoji, add the idea role
-                member = guild.get_member(reaction.user_id)
-                role = discord.utils.get(guild.roles, name=embed.title)
-
-                # Add user to role
-                await member.add_roles(role)
+            if reaction.emoji.name == THUMBS_UP_EMOJI:
+                return
 
             elif reaction.emoji.name == RESTART_EMOJI and reaction.member.bot:
                 # if it is a restart emoji put by the bot, restart the voting period
                 idea_name = embed.title
                 await overview_channel.send(f'An error occurred while processing the `{idea_name}` idea\n' +
                                             "The voting period has been restarted but your votes are safe.")
-                role = discord.utils.get(message.guild.roles, name=idea_name)
                 # We remove the reaction in case the voting period gets restarted again
                 await message.remove_reaction(reaction.emoji, reaction.member)
-                if role:
-                    await wait_for_votes(message, role)
-                else:  # The role was deleted
-                    role = await message.guild.create_role(name=idea_name)
-                    await wait_for_votes(message, role)
+                await wait_for_votes(message.id, idea_name)
 
             else:  # If it is another emoji, remove the reaction
                 await message.remove_reaction(reaction.emoji, reaction.member)
 
     # Watch for reaction remove
     @bot.event
-    async def on_raw_reaction_remove(reaction):
-        # Get the project role
-        chan = bot.get_channel(reaction.channel_id)
-        message = await chan.fetch_message(reaction.message_id)
+    async def on_reaction_remove(reaction, member):
+        message = reaction.message
         idea_id = int(Config.get('idea-channel'))
-        if reaction.channel_id == idea_id and message.author.bot and reaction.emoji.name == '\N{THUMBS UP SIGN}':
-            embed = message.embeds[0]
-            guild = bot.get_guild(reaction.guild_id)
-            member = guild.get_member(reaction.user_id)
-            role = discord.utils.get(guild.roles, name=embed.title)
-            # Remove user from role
-
+        if message.channel.id == idea_id and message.author.bot and reaction.emoji == THUMBS_UP_EMOJI:
             if member == message.mentions[0]:  # If the reaction remover is the owner of the idea
-                if len(role.members) > 1:  # If there are members in the current role
-                    new_content = message.content.replace(message.mentions[0].mention, role.members[1].mention)
-                    await message.edit(content=new_content)
-                    # Replace the owner with the second member in the role
-
+                users = await reaction.users().flatten()
+                replacer = "No owner "
+                if len(users) > 1:  # There are voters other than the bot
+                    bot_replace = False
                 else:
-                    await message.edit(content=message.content.replace(message.mentions[1].mention, "No owner"))
+                    bot_replace = True
 
-            await member.remove_roles(role)
+                for user in users:  # Replace with bot if there aren't votes, otherwise replace with user
+                    if user.bot == bot_replace:
+                        replacer = user.mention
+
+                new_content = message.content.replace(message.mentions[0].mention, replacer)
+                await message.edit(content=new_content)
+                # Replace the owner with the voter
