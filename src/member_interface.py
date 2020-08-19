@@ -27,15 +27,23 @@ def setup_member_interface(bot):
             return await ctx.send(f'{ctx.author.mention} fields are invalid! ' +
                                   'Please use "language" "idea name" "idea explanations" as arguments')
 
+        if len(idea_name) > 100:
+            return await ctx.send(ctx.author.mention + ", the idea name length must be less that 100 characters long")
+
         # Get channel
         chanid = Config.get('idea-channel')
         chanid = int(chanid)
         chan = bot.get_channel(chanid)
+        overview_id = int(Config.get('overview-channel'))
+        overview_channel = bot.get_channel(overview_id)
         if not chanid:
             return await ctx.send('Idea channel is not available!')
 
         # Generate a name from idea
         gen_name = '-'.join(idea_name.split(' '))
+        lang = lang.replace('`', '').replace('"', '').replace('*', '').replace('_', '')
+        idea_explanation = idea_explanation.replace('`', '').replace('"', '').replace('*', '').replace('_', '')
+        gen_name = gen_name.replace('`', '').replace('"', '').replace('*', '').replace('_', '')
 
         role = discord.utils.get(ctx.guild.roles, name=gen_name)
         if role:
@@ -58,7 +66,8 @@ def setup_member_interface(bot):
             # Watch it
             await wait_for_votes(msg, role)
         except discord.HTTPException:
-            await ctx.send(ctx.author.mention + ", the idea name must be less than 100 characters long")
+            await overview_channel.send(ctx.author.mention +
+                                        ", an error has occurred while processing one of your ideas")
 
     # Asks user for github
     async def get_github(voter, role):  # TODO: Complete function
