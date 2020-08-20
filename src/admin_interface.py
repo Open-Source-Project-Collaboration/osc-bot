@@ -32,18 +32,21 @@ def setup_admin_interface(bot):
 
     # Purges ideas
     @bot.command(hidden=True)
-    async def purge(ctx, name):
+    async def purge(ctx, name=''):
 
         # Check admin
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
 
+        if not name:
+            return await ctx.send("Please input the name of the channel as in the database.")
+
         # Get the channel
         chanid = Config.get(f'{name}-channel')
+        if not chanid:
+            return await ctx.send('Invalid channel, please input the channel name as in the database.')
         chanid = int(chanid)
         chan = bot.get_channel(chanid)
-        if not chan:
-            return await ctx.send('Idea channel is not set!')
         await ctx.send(f'Purged <#{chanid}>')
 
         # Purge the channel
