@@ -1,6 +1,7 @@
 import asyncio
 from config import Config
 import discord.ext.commands.errors
+from github import Github
 
 CHECK_MARK_EMOJI = '\U0001F973'
 RESTART_EMOJI = '\U0001F504'
@@ -80,11 +81,15 @@ def setup_member_interface(bot):
 
     # Asks user for github
     async def get_github(voter, idea_name):  # TODO: Complete function
-        await voter.send(f"""
+        message = await voter.send(f"""
             Hello!
             We noticed that you have voted for {idea_name}
             Please send your GitHub profile so I can add you to the team ^_^
         """)
+        channel = message.channel
+        channel.send("If you receive no reply then you have inputted an invalid username\n" +
+                     "If you have inputted a valid username yet received no reply, please contact an administrator")
+        g = Github()
 
     # Watches a vote for 14 days
     async def wait_for_votes(message_id, idea_name):
