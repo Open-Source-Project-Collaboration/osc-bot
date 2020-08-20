@@ -71,15 +71,12 @@ def setup_member_interface(bot):
             await overview_channel.send(ctx.author.mention +
                                         ", an error has occurred while processing one of your ideas")
 
-    @bot.command(brief="Shows the current voting period")
-    async def show_voting_period(ctx):
+    @bot.command(brief="Shows information about the voting process")
+    async def voting_info(ctx):
         time_to_wait = Config.get('time-to-wait')
-        await ctx.send("The current voting period is " + str(time_to_wait) + " seconds.")
-
-    @bot.command(brief="Shows the required votes for ideas")
-    async def show_required_votes(ctx):
         req_votes = Config.get('required-votes')
-        await ctx.send("The required votes to approve each idea are " + str(req_votes) + " votes.")
+        await ctx.send(f'The current voting period is {time_to_wait} seconds.\n' +
+                       f'The required votes for each idea are {req_votes} votes.')
 
     # Asks user for github
     async def get_github(voter, idea_name):  # TODO: Complete function
