@@ -2,9 +2,7 @@ import asyncio
 from config import Config
 import discord.ext.commands.errors
 
-TIME_TO_WAIT = 10
 CHECK_MARK_EMOJI = '\U0001F973'
-REQ_VOTES = 0
 RESTART_EMOJI = '\U0001F504'
 THUMBS_UP_EMOJI = '\N{THUMBS UP SIGN}'
 
@@ -42,7 +40,7 @@ def setup_member_interface(bot):
 
         # Generate a name from idea
         gen_name = '-'.join(idea_name.split(' '))
-        for item in ['`', '"', '*', '_']:
+        for item in ['`', '"', '*', '_', '@']:  # Filter out unwanted characters
             lang = lang.replace(item, '')
             idea_explanation = idea_explanation.replace(item, '')
             gen_name = gen_name.replace(item, '')
@@ -73,6 +71,16 @@ def setup_member_interface(bot):
             await overview_channel.send(ctx.author.mention +
                                         ", an error has occurred while processing one of your ideas")
 
+    @bot.command(brief="Shows the current voting period")
+    async def show_voting_period(ctx):
+        time_to_wait = Config.get('time-to-wait')
+        await ctx.send("The current voting period is " + str(time_to_wait) + " seconds.")
+
+    @bot.command(brief="Shows the required votes for ideas")
+    async def show_required_votes(ctx):
+        req_votes = Config.get('required-votes')
+        await ctx.send("The required votes to approve each idea are " + str(req_votes) + " votes.")
+
     # Asks user for github
     async def get_github(voter, idea_name):  # TODO: Complete function
         await voter.send(f"""
@@ -94,9 +102,9 @@ def setup_member_interface(bot):
 
         # Trial count
         for _ in range(4):
-
+            time_to_wait = int(Config.get('time-to-wait'))
             # Wait for 14 days
-            await asyncio.sleep(TIME_TO_WAIT)
+            await asyncio.sleep(time_to_wait)
             msg = await idea_channel.fetch_message(message_id)
             voters_number = 0
             participants = msg.mentions[0].mention  # Add the idea owner as an initial participant
@@ -109,8 +117,9 @@ def setup_member_interface(bot):
                             continue
                         participants += "\n" + user.mention
 
+            req_votes = int(Config.get('required-votes'))
             # Check votes (-1 the bot)
-            if voters_number > REQ_VOTES:
+            if voters_number > req_votes:
                 await msg.delete()
                 return await overview_chan.send(
                     f'''

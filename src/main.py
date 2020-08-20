@@ -28,6 +28,8 @@ setup_admin_interface(bot)
 # Set default configs
 Config.set_init('idea-channel', '744885478188384287')
 Config.set_init('overview-channel', '744885556613480509')
+Config.set_init('required-votes', '5')
+Config.set_init('time-to-wait', '1,209,600')
 
 # Run bot
 bot.run(environ.get('DISCORD_TOKEN'))
