@@ -32,18 +32,68 @@ def setup_admin_interface(bot):
 
     # Purges ideas
     @bot.command(hidden=True)
-    async def purge(ctx):
+    async def purge(ctx, name=''):
 
         # Check admin
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
 
-        # Get idea channel
-        chanid = Config.get('idea-channel')
+        if not name:
+            return await ctx.send("Please input the name of the channel as in the database.")
+
+        # Get the channel
+        chanid = Config.get(f'{name}-channel')
+        if not chanid:
+            return await ctx.send('Invalid channel, please input the channel name as in the database.')
         chanid = int(chanid)
         chan = bot.get_channel(chanid)
-        if not chan:
-            return await ctx.send('Idea channel is not set!')
+        await ctx.send(f'Purged <#{chanid}>')
 
-        # Purge ideas
+        # Purge the channel
         await chan.purge()
+
+    @bot.command(hidden=True)
+    async def ahelp(ctx):  # Shows the admin commands
+
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+
+        commands = bot.commands
+        commands_str = '```'
+        for command in commands:  # Get all the commands
+            if not command.hidden:  # The command must be hidden
+                continue
+            commands_str += command.name  # Add the command name
+            parameters = command.clean_params
+
+            for parameter in parameters.keys():
+                commands_str += f' [{parameter}]'  # Add the parameter name
+            commands_str += "\n"  # Add a new line
+
+        commands_str += '```'
+
+        await ctx.send(commands_str)
+
+    @bot.command(hidden=True)
+    async def change_voting_period(ctx, days, hours="0", minutes="0", seconds="0"):
+
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+        try:
+            time_to_wait = int(days) * 24 * 60 * 60 + int(hours) * 60 * 60 + int(minutes) * 60 + int(seconds)
+            Config.set("time-to-wait", str(time_to_wait))
+            await ctx.send(ctx.author.mention + ", voting will now last for " + str(time_to_wait) + " seconds.")
+        except ValueError:
+            await ctx.send(ctx.author.mention + ", please input a valid integer.")
+
+    @bot.command(hidden=True)
+    async def change_required_votes(ctx, new_req_votes):
+
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+        try:
+            int(new_req_votes)
+            Config.set('required-votes', new_req_votes)
+            await ctx.send(ctx.author.mention + ", the required votes are now " + new_req_votes)
+        except ValueError:
+            await ctx.send(ctx.author.mention + ", please input a valid integer")
