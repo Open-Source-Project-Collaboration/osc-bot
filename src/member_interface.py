@@ -10,7 +10,7 @@ THUMBS_UP_EMOJI = '\N{THUMBS UP SIGN}'
 # Setup function
 def setup_member_interface(bot):
     # Show channels
-    @bot.command(brief="Use this to view all the channels that are related to the voting process")
+    @bot.command(brief="Shows all the channels that are related to the voting process")
     async def channels(ctx):
         chans = Config.channels()
         msgs = [f'{name} channel is <#{chans[name]}>' for name in chans.keys()]
