@@ -11,7 +11,7 @@ THUMBS_UP_EMOJI = '\N{THUMBS UP SIGN}'
 
 # Some constants related to program logic
 # TODO: Add them in DB with commands to change them
-GITHUB_SLEEP_TIME = 30
+GITHUB_SLEEP_TIME = 60
 GITHUB_REQ_PERCENTAGE = 80 / 100
 
 # github data
@@ -102,7 +102,8 @@ def setup_member_interface(bot):
         embed.add_field(name="Guild ID", value=voter.guild.id)
         await voter.send('Hello!\nWe noticed that you have voted for the following idea:\n' +
                          'Please send me your GitHub username so I can add you to the team.', embed=embed)
-        await voter.send("If you receive no reply, please try at a later time")
+        await voter.send("If you receive no reply, please try at a later time.\n" +
+                         "If you accidentally send someone else's username, simply re-send your username")
 
     async def get_all_githubs(participants, gen_name, message):
         guild = message.guild
@@ -326,11 +327,18 @@ def setup_member_interface(bot):
         github_messages = await github_channel.history().flatten()
 
         for message in github_messages:
-            if message.mentions[0].mention == username_message.author.mention \
-                    and message.embeds[0].title == github_user:  # Github message format containing the user
-                for field in message.embeds[0].fields:  # Check if it is the same team
-                    if field.name == "Idea team" and field.value == gen_name:
-                        return await channel.send("I already have your GitHub account.")
+            # Github message format containing the user
+            if message.mentions[0].mention != username_message.author.mention:
+                continue
+            for field in message.embeds[0].fields:
+                if field.name == "Idea team" and field.value == gen_name\
+                        and message.embeds[0].title != github_user:  # If the user sent a different name
+                    await channel.send("Replacing the username you have sent...")
+                    await message.delete()
+                    break
+                elif field.name == "Idea team" and field.value == gen_name\
+                        and message.embeds[0].title == github_user:  # If the user sent the same name
+                    return await channel.send("I already have your GitHub account.")
 
         # --- Checking the username and adding to the server ---
 
