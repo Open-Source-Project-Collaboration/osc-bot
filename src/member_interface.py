@@ -63,6 +63,49 @@ def setup_member_interface(bot):
 
         return idea_ended
 
+    async def add_github(guild, github_user, gen_name, member, channel):
+        github_channel_id = int(Config.get('github-channel'))
+        github_channel = guild.get_channel(github_channel_id)
+        g = Github(github_token)  # Logs into GitHub
+        try:
+            g.get_user(github_user)  # Tries to find the user on GitHub
+            role = discord.utils.get(guild.roles, name=gen_name)  # Finds the role created in get_all_githubs function
+            # Gets information from the server
+            guild_user = guild.get_member(member.id)
+            if not guild_user:
+                return await channel.send("I can't find you in the server, have you left?")
+
+            # Puts the information in the server
+            await guild_user.add_roles(role)  # Adds the role
+            embed = discord.Embed(title=github_user)  # Creates an embed with the GitHub username as title
+            embed.add_field(name="Idea team", value=gen_name)  # Idea team name (gen_name) as a field
+            await github_channel.send(guild_user.mention, embed=embed)  # Send to the GitHub channel in the server
+            await channel.send("Thank you!")
+        except UnknownObjectException:  # If the user's GitHub was not found
+            await channel.send("This username is not a valid Github username")
+
+    async def check_submitted(guild, member, gen_name, github_user, channel):
+        github_channel_id = int(Config.get('github-channel'))
+        github_channel = guild.get_channel(github_channel_id)
+        github_messages = await github_channel.history().flatten()
+        valid = True
+
+        for message in github_messages:
+            # Github message format containing the user
+            if message.mentions[0].mention != member.mention:
+                continue
+            for field in message.embeds[0].fields:
+                if field.name == "Idea team" and field.value == gen_name\
+                        and message.embeds[0].title != github_user:  # If the user sent a different name
+                    await channel.send("Replacing the username you have sent...")
+                    await message.delete()
+                    break
+                elif field.name == "Idea team" and field.value == gen_name\
+                        and message.embeds[0].title == github_user:  # If the user sent the same name
+                    await channel.send("I already have your GitHub account and you are already in the team.")
+                    valid = False
+        return valid
+
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
@@ -345,42 +388,8 @@ def setup_member_interface(bot):
         github_user = username_message.content
 
         # --- Checking if the user has already submitted his username ---
-
-        github_channel_id = int(Config.get('github-channel'))
-        github_channel = guild.get_channel(github_channel_id)
-        github_messages = await github_channel.history().flatten()
-
-        for message in github_messages:
-            # Github message format containing the user
-            if message.mentions[0].mention != username_message.author.mention:
-                continue
-            for field in message.embeds[0].fields:
-                if field.name == "Idea team" and field.value == gen_name\
-                        and message.embeds[0].title != github_user:  # If the user sent a different name
-                    await channel.send("Replacing the username you have sent...")
-                    await message.delete()
-                    break
-                elif field.name == "Idea team" and field.value == gen_name\
-                        and message.embeds[0].title == github_user:  # If the user sent the same name
-                    return await channel.send("I already have your GitHub account.")
+        if not await check_submitted(guild, username_message.author, gen_name, github_user, channel):
+            return
 
         # --- Checking the username and adding to the server ---
-
-        g = Github(github_token)  # Logs into GitHub
-        try:
-            g.get_user(github_user)  # Tries to find the user on GitHub
-            role = discord.utils.get(guild.roles, name=gen_name)  # Finds the role created in get_all_githubs function
-
-            # Gets information from the server
-            guild_user = guild.get_member(username_message.author.id)
-            if not guild_user:
-                return await channel.send("I can't find you in the server, have you left?")
-
-            # Puts the information in the server
-            await guild_user.add_roles(role)  # Adds the role
-            embed = discord.Embed(title=github_user)  # Creates an embed with the GitHub username as title
-            embed.add_field(name="Idea team", value=gen_name)  # Idea team name (gen_name) as a field
-            await github_channel.send(guild_user.mention, embed=embed)  # Send to the GitHub channel in the server
-            await channel.send("Thank you!")
-        except UnknownObjectException:  # If the user's GitHub was not found
-            await channel.send("This username is not a valid Github username")
+        await add_github(guild, github_user, gen_name, username_message.author, channel)
