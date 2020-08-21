@@ -102,6 +102,7 @@ def setup_member_interface(bot):
         embed.add_field(name="Guild ID", value=voter.guild.id)
         await voter.send('Hello!\nWe noticed that you have voted for the following idea:\n' +
                          'Please send me your GitHub username so I can add you to the team.', embed=embed)
+        await voter.send("If you receive no reply, please try at a later time")
 
     async def get_all_githubs(participants, gen_name, message):
         guild = message.guild
@@ -119,7 +120,7 @@ def setup_member_interface(bot):
         overview_channel = bot.get_channel(overview_id)
         # If the required percentage or more replied with their GitHub accounts and got their roles added
         if len(role.members) >= GITHUB_REQ_PERCENTAGE * len(participants):
-            await overview_channel.send(f'More than {GITHUB_REQ_PERCENTAGE * 100}%' +
+            await overview_channel.send(f'More than {GITHUB_REQ_PERCENTAGE * 100}% ' +
                                         f'of the participants in `{gen_name}` ' +
                                         'replied with their GitHub usernames, idea approved!')
             await message.delete()
@@ -274,7 +275,7 @@ def setup_member_interface(bot):
 
         messages = await channel.history().flatten()  # Get last 100 messages in DM channel
 
-        # Variables initial declaration
+        # --- Variables initial declaration ---
         gen_name = ''
         embed = None
         guild_id = 0
@@ -295,8 +296,10 @@ def setup_member_interface(bot):
 
         guild = bot.get_guild(guild_id)  # Gets the server
 
-        # Checking if team creation process was done
         await channel.send("Please wait...")
+
+        # --- Checking if team creation process was done ---
+
         overview_channel_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_channel_id)
         participants_messages = await overview_channel.history().flatten()
@@ -312,12 +315,27 @@ def setup_member_interface(bot):
             return await channel.send("The team creation process for this idea has already ended.\n" +
                                       "Please contact an administrator if you would like to join the team.")
 
-        # Checking the username and adding to the server
+        # --- The username ---
         username_message = messages[0]  # Gets the last message in DM (the one containing the username)
+        github_user = username_message.content
+
+        # --- Checking if the user has already submitted his username ---
+
+        github_channel_id = int(Config.get('github-channel'))
+        github_channel = guild.get_channel(github_channel_id)
+        github_messages = await github_channel.history().flatten()
+
+        for message in github_messages:
+            if message.mentions[0].mention == username_message.author.mention \
+                    and message.embeds[0].title == github_user:  # Github message format containing the user
+                for field in message.embeds[0].fields:  # Check if it is the same team
+                    if field.name == "Idea team" and field.value == gen_name:
+                        return await channel.send("I already have your GitHub account.")
+
+        # --- Checking the username and adding to the server ---
 
         g = Github(github_token)  # Logs into GitHub
         try:
-            github_user = username_message.content
             g.get_user(github_user)  # Tries to find the user on GitHub
             role = discord.utils.get(guild.roles, name=gen_name)  # Finds the role created in get_all_githubs function
 
@@ -325,8 +343,6 @@ def setup_member_interface(bot):
             guild_user = guild.get_member(username_message.author.id)
             if not guild_user:
                 return await channel.send("I can't find you in the server, have you left?")
-            github_channel_id = int(Config.get('github-channel'))
-            github_channel = guild.get_channel(github_channel_id)
 
             # Puts the information in the server
             await guild_user.add_roles(role)  # Adds the role
