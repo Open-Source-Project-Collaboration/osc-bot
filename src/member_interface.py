@@ -3,6 +3,7 @@ from config import Config
 import discord.ext.commands.errors
 from github import Github, UnknownObjectException
 from os import environ
+import re
 
 # Used emojis
 CHECK_MARK_EMOJI = '\U0001F973'
@@ -11,7 +12,7 @@ THUMBS_UP_EMOJI = '\N{THUMBS UP SIGN}'
 
 # Some constants related to program logic
 # TODO: Add them in DB with commands to change them
-GITHUB_SLEEP_TIME = 60
+GITHUB_SLEEP_TIME = 30
 GITHUB_REQ_PERCENTAGE = 80 / 100
 
 # github data
@@ -40,6 +41,28 @@ def setup_member_interface(bot):
         await ctx.send(f'The current voting period is {time_to_wait} seconds.\n' +
                        f'The required votes for each idea are {req_votes} votes.')
 
+    # -------------------------------- Supporting functions --------------------------------
+    async def continue_githubs(gen_name, participants_message):
+        users = participants_message.mentions
+        participants_list = []
+        for user in users:
+            if not discord.utils.get(user.roles, name=gen_name):
+                participants_list.append(user)
+        await get_all_githubs(participants_list, gen_name, participants_message)
+
+    async def check_if_finished(gen_name):
+        overview_channel_id = int(Config.get('overview-channel'))
+        overview_channel = bot.get_channel(overview_channel_id)
+        participants_messages = await overview_channel.history().flatten()
+        idea_ended = True
+        for message in participants_messages:
+            if message.embeds and message.embeds[0].title == gen_name:
+                # If it is a participants messages containing an Embed
+                idea_ended = False
+                break
+
+        return idea_ended
+
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
@@ -64,10 +87,11 @@ def setup_member_interface(bot):
 
         # Generate a name from idea
         gen_name = '-'.join(idea_name.split(' ')).lower()
-        for item in ['`', '"', '*', '_', '@']:  # Filter out unwanted characters
+        for item in ['`', '"', '*', '_', '@', '#']:  # Filter out unwanted characters
             lang = lang.replace(item, '')
             idea_explanation = idea_explanation.replace(item, '')
             gen_name = gen_name.replace(item, '')
+        gen_name = re.sub("([^a-z-])+", '', gen_name)  # Remove anything that is not a letter
 
         # Check if there is an idea team with the current idea
         role = discord.utils.get(ctx.guild.roles, name=gen_name)
@@ -107,7 +131,10 @@ def setup_member_interface(bot):
 
     async def get_all_githubs(participants, gen_name, message):
         guild = message.guild
-        role = await guild.create_role(name=gen_name)  # Creates a role for the team
+        role = discord.utils.get(guild.roles, name=gen_name)  # Tries to find if a role already exists
+        # This happens when the bot is turned off during the GitHub gathering process
+        if not role:
+            role = await guild.create_role(name=gen_name)  # Creates a role for the team
 
         for user in participants:
             if not user.bot:
@@ -120,7 +147,7 @@ def setup_member_interface(bot):
         overview_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_id)
         # If the required percentage or more replied with their GitHub accounts and got their roles added
-        if len(role.members) >= GITHUB_REQ_PERCENTAGE * len(participants):
+        if len(role.members) >= GITHUB_REQ_PERCENTAGE * len(message.mentions):
             await overview_channel.send(f'More than {GITHUB_REQ_PERCENTAGE * 100}% ' +
                                         f'of the participants in `{gen_name}` ' +
                                         'replied with their GitHub usernames, idea approved!')
@@ -198,17 +225,20 @@ def setup_member_interface(bot):
     @bot.event
     async def on_ready():
         print('I\'m alive, my dear human :)')
+
+        # Check for unfinished processes
         print("Checking for any unfinished ideas...")
+        for channel_name in ['idea-channel', 'overview-channel']:
+            channel_id = int(Config.get(channel_name))
+            channel = bot.get_channel(channel_id)
+            channel_messages = await channel.history().flatten()
 
-        idea_id = int(Config.get('idea-channel'))
-        idea_channel = bot.get_channel(idea_id)
-        messages = await idea_channel.history().flatten()
-        for message in messages:  # Loop through the messages in the ideas channel
-            if message.embeds:  # If the message is an idea message containing Embed, add the restart emoji
-                print("Found an unfinished idea!")
-                await message.add_reaction(RESTART_EMOJI)
+            for message in channel_messages:  # Loop the messages in the channel
+                if message.embeds:  # If the message contains an Embed, add the restart emoji
+                    print(f'Found an unfinished process in {channel_name}!')
+                    await message.add_reaction(RESTART_EMOJI)
 
-        print("No unfinished ideas since last boot")
+        print("Done.")
 
     # Watch for reaction add
     @bot.event
@@ -218,10 +248,13 @@ def setup_member_interface(bot):
         overview_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_id)
 
-        if reaction.channel_id != idea_id:  # Makes sure the reaction added is in the ideas channel
+        if reaction.channel_id != idea_id and reaction.channel_id != overview_id:
+            # Makes sure the reaction added is in the ideas channel or the overview channel
             return
-
-        message = await idea_channel.fetch_message(reaction.message_id)
+        if reaction.channel_id == idea_id:
+            message = await idea_channel.fetch_message(reaction.message_id)
+        else:
+            message = await overview_channel.fetch_message(reaction.message_id)
         if message.author.bot and message.embeds:  # If the message reacted to is by the bot and contains an embed
             # ie: it is an idea message
             embed = message.embeds[0]
@@ -232,11 +265,14 @@ def setup_member_interface(bot):
             elif reaction.emoji.name == RESTART_EMOJI and reaction.member.bot:
                 # if it is a restart emoji put by the bot, restart the voting period
                 idea_name = embed.title
-                await overview_channel.send(f'An error occurred while processing the `{idea_name}` idea\n' +
-                                            "The voting period has been restarted but your votes are safe.")
+                await overview_channel.send(
+                    f'Processing the `{idea_name}` idea might take a little longer than expected.')
                 # We remove the reaction in case the voting period gets restarted again
                 await message.remove_reaction(reaction.emoji, reaction.member)
-                await wait_for_votes(message.id, idea_name)
+                if reaction.channel_id == idea_id:
+                    await wait_for_votes(message.id, idea_name)
+                else:
+                    await continue_githubs(idea_name, message)
 
             else:  # If it is another emoji, remove the reaction
                 await message.remove_reaction(reaction.emoji, reaction.member)
@@ -299,20 +335,8 @@ def setup_member_interface(bot):
 
         await channel.send("Please wait...")
 
-        # --- Checking if team creation process was done ---
-
-        overview_channel_id = int(Config.get('overview-channel'))
-        overview_channel = bot.get_channel(overview_channel_id)
-        participants_messages = await overview_channel.history().flatten()
-        idea_ended = False
-
-        for message in participants_messages:
-            if message.embeds and message.embeds[0].title == gen_name:
-                # If it is a participants messages containing an Embed
-                break
-            idea_ended = True
-
-        if idea_ended:
+        # Checking if team creation process was done
+        if await check_if_finished(gen_name):
             return await channel.send("The team creation process for this idea has already ended.\n" +
                                       "Please contact an administrator if you would like to join the team.")
 
