@@ -323,6 +323,8 @@ def setup_member_interface(bot):
 
             # Gets information from the server
             guild_user = guild.get_member(username_message.author.id)
+            if not guild_user:
+                return await channel.send("I can't find you in the server, have you left?")
             github_channel_id = int(Config.get('github-channel'))
             github_channel = guild.get_channel(github_channel_id)
 
