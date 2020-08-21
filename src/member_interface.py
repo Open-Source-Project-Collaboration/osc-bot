@@ -168,12 +168,13 @@ def setup_member_interface(bot):
             # Check votes (-1 the bot)
             if voters_number > req_votes:
                 await msg.delete()
+                embed = discord.Embed(title=gen_name)
                 participants_message = await overview_chan.send(
                     f'''
                     {CHECK_MARK_EMOJI * voters_number}\n\n''' +
                     f'''Voting for {gen_name} has ended, **approved**!\n'''
                     f'''Participants:\n{participants}\nPlease check your messages
-                    ''')
+                    ''', embed=embed)
                 return await get_all_githubs(participants_list, gen_name, participants_message)
 
             # If the votes aren't enough
@@ -293,9 +294,27 @@ def setup_member_interface(bot):
                 guild_id = int(field.value)
 
         guild = bot.get_guild(guild_id)  # Gets the server
+
+        # Checking if team creation process was done
+        await channel.send("Please wait...")
+        overview_channel_id = int(Config.get('overview-channel'))
+        overview_channel = bot.get_channel(overview_channel_id)
+        participants_messages = await overview_channel.history().flatten()
+        idea_ended = False
+
+        for message in participants_messages:
+            if message.embeds and message.embeds[0].title == gen_name:
+                # If it is a participants messages containing an Embed
+                break
+            idea_ended = True
+
+        if idea_ended:
+            return await channel.send("The team creation process for this idea has already ended.\n" +
+                                      "Please contact an administrator if you would like to join the team.")
+
+        # Checking the username and adding to the server
         username_message = messages[0]  # Gets the last message in DM (the one containing the username)
 
-        await channel.send("Please wait...")
         g = Github(github_token)  # Logs into GitHub
         try:
             github_user = username_message.content
