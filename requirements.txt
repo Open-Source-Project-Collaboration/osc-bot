@@ -13,3 +13,4 @@ typing-extensions==3.7.4.2
 yarl==1.5.1
 
 PyGithub~=1.53
+pytz~=2020.1

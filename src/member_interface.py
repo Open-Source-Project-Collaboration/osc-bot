@@ -4,6 +4,8 @@ import discord.ext.commands.errors
 from github import Github, UnknownObjectException
 from os import environ
 import re
+from datetime import datetime, timezone
+import pytz
 
 # Used emojis
 CHECK_MARK_EMOJI = '\U0001F973'
@@ -12,12 +14,16 @@ THUMBS_UP_EMOJI = '\N{THUMBS UP SIGN}'
 
 # Some constants related to program logic
 # TODO: Add them in DB with commands to change them
-GITHUB_SLEEP_TIME = 30
+GITHUB_SLEEP_TIME = 60
 GITHUB_REQ_PERCENTAGE = 80 / 100
 
-# github data
+# GitHub data
 github_token = environ.get('GITHUB_TOKEN')
 org_name = environ.get('ORG_NAME')
+
+# Bot data
+online_since_date = None
+utc = pytz.UTC
 
 
 # TODO: let the bot ask the remaining members for their GitHubs if it was down during the GitHub collection process
@@ -63,7 +69,7 @@ def setup_member_interface(bot):
 
         return idea_ended
 
-    async def add_github(guild, github_user, gen_name, member, channel):
+    async def add_github(guild, guild_user, github_user, gen_name):
         github_channel_id = int(Config.get('github-channel'))
         github_channel = guild.get_channel(github_channel_id)
         g = Github(github_token)  # Logs into GitHub
@@ -71,22 +77,19 @@ def setup_member_interface(bot):
             g.get_user(github_user)  # Tries to find the user on GitHub
             role = discord.utils.get(guild.roles, name=gen_name)  # Finds the role created in get_all_githubs function
             # Gets information from the server
-            guild_user = guild.get_member(member.id)
-            if not guild_user:
-                return await channel.send("I can't find you in the server, have you left?")
 
             # Puts the information in the server
             await guild_user.add_roles(role)  # Adds the role
             embed = discord.Embed(title=github_user)  # Creates an embed with the GitHub username as title
             embed.add_field(name="Idea team", value=gen_name)  # Idea team name (gen_name) as a field
             await github_channel.send(guild_user.mention, embed=embed)  # Send to the GitHub channel in the server
-            await channel.send("Thank you!")
+            return True
         except UnknownObjectException:  # If the user's GitHub was not found
-            await channel.send("This username is not a valid Github username")
+            return False
 
-    async def check_submitted(guild, member, gen_name, github_user, channel):
+    async def check_submitted(member, gen_name, github_user, channel):
         github_channel_id = int(Config.get('github-channel'))
-        github_channel = guild.get_channel(github_channel_id)
+        github_channel = bot.get_channel(github_channel_id)
         github_messages = await github_channel.history().flatten()
         valid = True
 
@@ -102,9 +105,13 @@ def setup_member_interface(bot):
                     break
                 elif field.name == "Idea team" and field.value == gen_name\
                         and message.embeds[0].title == github_user:  # If the user sent the same name
-                    await channel.send("I already have your GitHub account and you are already in the team.")
+                    await channel.send(f'I already have your GitHub account for the `{gen_name}` team.')
                     valid = False
         return valid
+
+    async def check_user_in_server(guild, member_id):
+        guild_user = guild.get_member(member_id)
+        return guild_user if guild_user else None
 
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
@@ -135,6 +142,7 @@ def setup_member_interface(bot):
             idea_explanation = idea_explanation.replace(item, '')
             gen_name = gen_name.replace(item, '')
         gen_name = re.sub("([^a-z-])+", '', gen_name)  # Remove anything that is not a letter
+        gen_name = re.sub("(-)+", '-', gen_name)  # Replace multiple dashes with a single one
 
         # Check if there is an idea team with the current idea
         role = discord.utils.get(ctx.guild.roles, name=gen_name)
@@ -168,9 +176,24 @@ def setup_member_interface(bot):
         embed.add_field(name="Idea", value=gen_name)
         embed.add_field(name="Guild ID", value=voter.guild.id)
         await voter.send('Hello!\nWe noticed that you have voted for the following idea:\n' +
-                         'Please send me your GitHub username so I can add you to the team.', embed=embed)
-        await voter.send("If you receive no reply, please try at a later time.\n" +
-                         "If you accidentally send someone else's username, simply re-send your username")
+                         'Please send me your GitHub username so I can add you to the team.\n' +
+                         "If you receive no reply, then the bot is down or the idea team has already been created.\n" +
+                         "If you accidentally send someone else's username, simply re-send your username", embed=embed)
+
+    async def notify_voters(participants_message, gen_name):
+        overview_id = int(Config.get('overview-channel'))
+        message = None
+        for member in participants_message.mentions:
+            if member.bot:
+                continue
+            message = await member.send(f'Processing the `{gen_name}` idea has ended. Please check <#{overview_id}>')
+        if not message:
+            return
+        dm_channel = message.channel
+        messages = await dm_channel.history().flatten()
+        for message in messages:
+            if message.embeds and message.author.bot:
+                await message.delete()
 
     async def get_all_githubs(participants, gen_name, message):
         guild = message.guild
@@ -205,6 +228,8 @@ def setup_member_interface(bot):
                 + "replied with their GitHub usernames, idea cancelled.")
             await role.delete()
             await message.delete()
+
+        await notify_voters(message, gen_name)
 
     # Watches a vote for 14 days
     async def wait_for_votes(message_id, gen_name):
@@ -268,6 +293,8 @@ def setup_member_interface(bot):
     @bot.event
     async def on_ready():
         print('I\'m alive, my dear human :)')
+        global online_since_date
+        online_since_date = datetime.now(tz=timezone.utc)
 
         # Check for unfinished processes
         print("Checking for any unfinished ideas...")
@@ -346,7 +373,6 @@ def setup_member_interface(bot):
     @bot.event
     async def on_message(message):
         channel = message.channel
-        found_idea = False
         if channel.type != discord.ChannelType.private:  # If it is not a DM Channel
             return await bot.process_commands(message)  # Process the commands normally
 
@@ -356,40 +382,51 @@ def setup_member_interface(bot):
         messages = await channel.history().flatten()  # Get last 100 messages in DM channel
 
         # --- Variables initial declaration ---
-        gen_name = ''
-        embed = None
         guild_id = 0
-
-        for message in messages:
-            if message.embeds:  # If it is an idea message containing an embed
-                found_idea = True
-                embed = message.embeds[0]
-                gen_name = embed.title  # Gets the idea name from the message sent to user
-                break
-
-        if not found_idea:
-            return
-
-        for field in embed.fields:
-            if field.name == "Guild ID":
-                guild_id = int(field.value)
-
-        guild = bot.get_guild(guild_id)  # Gets the server
-
-        await channel.send("Please wait...")
-
-        # Checking if team creation process was done
-        if await check_if_finished(gen_name):
-            return await channel.send("The team creation process for this idea has already ended.\n" +
-                                      "Please contact an administrator if you would like to join the team.")
-
+        checked_ideas = 0
         # --- The username ---
         username_message = messages[0]  # Gets the last message in DM (the one containing the username)
         github_user = username_message.content
 
-        # --- Checking if the user has already submitted his username ---
-        if not await check_submitted(guild, username_message.author, gen_name, github_user, channel):
-            return
+        await channel.send("Hey there, please wait...")
+        for message in messages:
+            if not message.embeds:
+                # Looks for a message containing an embed and one that hasn't been looked through before
+                continue
+            if utc.localize(message.created_at) < online_since_date:
+                await message.delete()
+                continue
 
-        # --- Checking the username and adding to the server ---
-        await add_github(guild, github_user, gen_name, username_message.author, channel)
+            embed = message.embeds[0]
+            gen_name = embed.title  # Gets the idea name from the message sent to user
+
+            for field in embed.fields:
+                if field.name == "Guild ID":
+                    guild_id = int(field.value)
+
+            guild = bot.get_guild(guild_id)  # Gets the server
+
+            # Checking if team creation process was done
+            if await check_if_finished(gen_name):
+                continue
+
+            # --- Checking if the user has already submitted his username ---
+            if not await check_submitted(username_message.author, gen_name, github_user, channel):
+                continue
+
+            guild_user = await check_user_in_server(guild, username_message.author.id)
+            if not guild_user:
+                return await channel.send("I can't find you in our server.")
+
+            if await add_github(guild, guild_user, github_user, gen_name):
+                # If the user inputted a valid username, do not try to add him to the same team again (if more than one
+                # message of the same idea is found)
+                await channel.send(f'Thank you! I am currently giving you the `{gen_name}` role...')
+                checked_ideas += 1
+            else:
+                await channel.send("This username is not a valid Github username")
+                return
+        if checked_ideas > 0:
+            return await channel.send("Done")
+        else:
+            return await channel.send("Nothing to do here")
