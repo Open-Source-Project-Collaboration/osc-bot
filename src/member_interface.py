@@ -180,6 +180,7 @@ def setup_member_interface(bot):
                          "If you receive no reply, then the bot is down or the idea team has already been created.\n" +
                          "If you accidentally send someone else's username, simply re-send your username", embed=embed)
 
+    # Notifies the participants about the idea processing results
     async def notify_voters(participants_message, gen_name):
         overview_id = int(Config.get('overview-channel'))
         message = None
@@ -192,7 +193,7 @@ def setup_member_interface(bot):
         dm_channel = message.channel
         messages = await dm_channel.history().flatten()
         for message in messages:
-            if message.embeds and message.author.bot:
+            if message.embeds and message.author.bot and message.embeds[0].title == gen_name:
                 await message.delete()
 
     async def get_all_githubs(participants, gen_name, message):
@@ -381,19 +382,20 @@ def setup_member_interface(bot):
 
         messages = await channel.history().flatten()  # Get last 100 messages in DM channel
 
-        # --- Variables initial declaration ---
+        # Variables initial declaration
         guild_id = 0
         checked_ideas = 0
-        # --- The username ---
+        # The username
         username_message = messages[0]  # Gets the last message in DM (the one containing the username)
         github_user = username_message.content
 
         await channel.send("Hey there, please wait...")
         for message in messages:
             if not message.embeds:
-                # Looks for a message containing an embed and one that hasn't been looked through before
+                # Looks for a message containing an embed
                 continue
-            if utc.localize(message.created_at) < online_since_date:
+            if utc.localize(message.created_at) < online_since_date and message.author.bot:
+                # If it was a message sent before the bot rebooted, delete it
                 await message.delete()
                 continue
 
@@ -410,17 +412,17 @@ def setup_member_interface(bot):
             if await check_if_finished(gen_name):
                 continue
 
-            # --- Checking if the user has already submitted his username ---
+            # Checking if the user has already submitted his username
             if not await check_submitted(username_message.author, gen_name, github_user, channel):
                 continue
 
+            # Checking if the user is in the server
             guild_user = await check_user_in_server(guild, username_message.author.id)
             if not guild_user:
                 return await channel.send("I can't find you in our server.")
 
+            # Add the user's GitHub name to the GitHub channel and give the team role
             if await add_github(guild, guild_user, github_user, gen_name):
-                # If the user inputted a valid username, do not try to add him to the same team again (if more than one
-                # message of the same idea is found)
                 await channel.send(f'Thank you! I am currently giving you the `{gen_name}` role...')
                 checked_ideas += 1
             else:
@@ -429,4 +431,4 @@ def setup_member_interface(bot):
         if checked_ideas > 0:
             return await channel.send("Done")
         else:
-            return await channel.send("Nothing to do here")
+            return await channel.send("Nothing to do here :)")
