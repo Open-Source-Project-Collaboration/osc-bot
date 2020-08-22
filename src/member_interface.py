@@ -1,5 +1,6 @@
 import asyncio
 from config import Config
+from user import User
 import discord.ext.commands.errors
 from github import Github, UnknownObjectException
 from os import environ
@@ -24,9 +25,6 @@ org_name = environ.get('ORG_NAME')
 # Bot data
 online_since_date = None
 utc = pytz.UTC
-
-
-# TODO: let the bot ask the remaining members for their GitHubs if it was down during the GitHub collection process
 
 
 # Setup function
@@ -228,6 +226,7 @@ def setup_member_interface(bot):
                 f'Less than {GITHUB_REQ_PERCENTAGE * 100}% of the participants in `{gen_name}` '
                 + "replied with their GitHub usernames, idea cancelled.")
             await role.delete()
+            User.delete_team(gen_name)
             await message.delete()
 
         await notify_voters(message, gen_name)
