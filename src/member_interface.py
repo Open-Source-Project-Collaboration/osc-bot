@@ -68,43 +68,28 @@ def setup_member_interface(bot):
         return idea_ended
 
     async def add_github(guild, guild_user, github_user, gen_name):
-        github_channel_id = int(Config.get('github-channel'))
-        github_channel = guild.get_channel(github_channel_id)
         g = Github(github_token)  # Logs into GitHub
         try:
             g.get_user(github_user)  # Tries to find the user on GitHub
             role = discord.utils.get(guild.roles, name=gen_name)  # Finds the role created in get_all_githubs function
-            # Gets information from the server
 
-            # Puts the information in the server
             await guild_user.add_roles(role)  # Adds the role
-            embed = discord.Embed(title=github_user)  # Creates an embed with the GitHub username as title
-            embed.add_field(name="Idea team", value=gen_name)  # Idea team name (gen_name) as a field
-            await github_channel.send(guild_user.mention, embed=embed)  # Send to the GitHub channel in the server
+            User.set(guild_user.id, gen_name, github_user)
             return True
         except UnknownObjectException:  # If the user's GitHub was not found
             return False
 
     async def check_submitted(member, gen_name, github_user, channel):
-        github_channel_id = int(Config.get('github-channel'))
-        github_channel = bot.get_channel(github_channel_id)
-        github_messages = await github_channel.history().flatten()
         valid = True
-
-        for message in github_messages:
-            # Github message format containing the user
-            if message.mentions[0].mention != member.mention:
-                continue
-            for field in message.embeds[0].fields:
-                if field.name == "Idea team" and field.value == gen_name\
-                        and message.embeds[0].title != github_user:  # If the user sent a different name
-                    await channel.send("Replacing the username you have sent...")
-                    await message.delete()
-                    break
-                elif field.name == "Idea team" and field.value == gen_name\
-                        and message.embeds[0].title == github_user:  # If the user sent the same name
-                    await channel.send(f'I already have your GitHub account for the `{gen_name}` team.')
-                    valid = False
+        user = User.get(member.id, gen_name)
+        if not user:
+            return valid
+        if user.user_github == github_user:
+            valid = False
+            await channel.send(f'Your GitHub username `{github_user}` is already set for this team')
+        else:
+            await channel.send("Replacing your GitHub username...")
+            User.set(member.id, gen_name, github_user)
         return valid
 
     async def check_user_in_server(guild, member_id):
