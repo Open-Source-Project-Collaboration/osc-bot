@@ -6,12 +6,13 @@ class User(Base):
     __tablename__ = 'users'
 
     # Fields
+    unique_id = Column(Integer, primary_key=True)
     user_id = Column(Integer)
     user_team = Column(String)
     user_github = Column(String)
 
     # Constructor and str
-    def __init(self, user_id, user_team, user_github):
+    def __init__(self, user_id, user_team, user_github):
         self.user_id = user_id
         self.user_team = user_team
         self.user_github = user_github
@@ -26,6 +27,15 @@ class User(Base):
         return user if user else None
 
     @staticmethod
+    def get_teams():
+        return session.query(User).all()
+
+    @staticmethod
+    def get_team(user_team):
+        team = session.query(User).filter_by(user_team=user_team)
+        return team if team else None
+
+    @staticmethod
     def set(user_id, user_team, user_github):
         user = User.get(user_id, user_team)
 
@@ -37,6 +47,14 @@ class User(Base):
             session.add(user)
 
         session.commit()
+
+    @staticmethod
+    def set_init(user_id, user_team, user_github):
+        user = User.get(user_id, user_team)
+        if user:
+            return
+        else:
+            User.set(user_id, user_team, user_github)
 
     @staticmethod
     def delete(user_id, user_team):

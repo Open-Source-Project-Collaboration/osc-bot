@@ -45,6 +45,28 @@ def setup_member_interface(bot):
         await ctx.send(f'The current voting period is {time_to_wait} seconds.\n' +
                        f'The required votes for each idea are {req_votes} votes.')
 
+    @bot.command(brief="Shows all team members and their GitHub usernames")
+    async def show_all_teams(ctx):
+        users = User.get_teams()
+        users_str = ''
+        teams_str = ''
+        githubs_str = ''
+        embed = discord.Embed(title="Current users in teams")
+        if not users:
+            return ctx.send("There are currently no teams.")
+        for user in users:
+            guild_user = bot.get_user(user.user_id)
+            username = guild_user.name
+            team = user.user_team
+            github_username = user.user_github
+            users_str += username + "\n"
+            teams_str += team + "\n"
+            githubs_str += github_username + "\n"
+        embed.add_field(name="Username", value=users_str)
+        embed.add_field(name="Team", value=teams_str)
+        embed.add_field(name="Github username", value=githubs_str)
+        await ctx.send(embed=embed)
+
     # -------------------------------- Supporting functions --------------------------------
     async def continue_githubs(gen_name, participants_message):
         users = participants_message.mentions
@@ -137,6 +159,10 @@ def setup_member_interface(bot):
         for message in messages:
             if message.embeds and message.embeds[0].title == gen_name:
                 return await ctx.send(ctx.author.mention + ", this idea name already exists.")
+
+        # Check if the same name exists in the database and if so delete (there would be no current idea with this
+        # name anyway, it would be an outdated finished idea)
+        User.delete_team(gen_name)
 
         try:
             # Notify with embed
