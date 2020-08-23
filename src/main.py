@@ -1,5 +1,4 @@
 # api's
-import discord
 from discord.ext import commands
 
 # dotenv
@@ -30,7 +29,9 @@ Config.set_init('idea-channel', '744885478188384287')
 Config.set_init('overview-channel', '744885556613480509')
 Config.set_init('github-channel', '746305634382643211')
 Config.set_init('required-votes', '5')
-Config.set_init('time-to-wait', '1,209,600')
+Config.set_init('time-to-wait', '1209600')
+Config.set_init('github-sleep-time', '1209600')
+Config.set_init('github-required-percentage', '0.7')
 
 # Run bot
 bot.run(environ.get('DISCORD_TOKEN'))
