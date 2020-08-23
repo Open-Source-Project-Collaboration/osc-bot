@@ -8,11 +8,13 @@ import re
 from datetime import datetime, timezone
 import pytz
 
+# TODO: show_team "team_name" command
+# TODO: hide members without the team role from the show_all_teams commands
+
 # Used emojis
 CHECK_MARK_EMOJI = '\U0001F973'
 RESTART_EMOJI = '\U0001F504'
 THUMBS_UP_EMOJI = '\N{THUMBS UP SIGN}'
-
 
 # GitHub data
 github_token = environ.get('GITHUB_TOKEN')
@@ -132,6 +134,27 @@ def setup_member_interface(bot):
                     print(f'Found an unfinished process in {channel_name}!')
                     await message.add_reaction(RESTART_EMOJI)
 
+    # -------------------------------- Team creation --------------------------------
+    async def create_category_channels(guild, gen_name):
+        role = discord.utils.get(guild.roles, name=gen_name)
+        if not role:
+            role = await guild.create_role(gen_name)
+
+        overwrites = {role: discord.PermissionOverwrite(view_channel=True),
+                      guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+
+        category = discord.utils.get(guild.categories, name=gen_name)
+        if not category:
+            category = await guild.create_category(gen_name, overwrites=overwrites)
+        else:
+            return
+        text_channel = await guild.create_text_channel("General", overwrites=overwrites, category=category)
+        await guild.create_voice_channel("Collab room", overwrites=overwrites, category=category)
+        await text_channel.send(role.mention + " LET'S GO!!")
+
+    async def create_team(guild, gen_name):
+        await create_category_channels(guild, gen_name)
+
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
@@ -244,6 +267,7 @@ def setup_member_interface(bot):
                                         f'of the participants in `{gen_name}` ' +
                                         'replied with their GitHub usernames, idea approved!')
             await message.delete()
+            await create_team(message.guild, gen_name)
             # TODO: Create a category and channels for them
             # TODO: Give the role the permission to access this category
             # TODO: Create GitHub team in the organization
