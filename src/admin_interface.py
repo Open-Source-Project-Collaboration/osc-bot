@@ -1,5 +1,6 @@
 from config import Config
 from user import User
+import discord
 
 
 # Setup function
@@ -136,3 +137,38 @@ def setup_admin_interface(bot):
                            " to reply with their GitHub usernames.")
         except ValueError:
             await ctx.send(ctx.author.mention + ", please input a valid integer.")
+
+    # This command is used in leader voting channels after the users have voted on their project leader to assign the
+    # Most voted member as the project leader
+    @bot.command(hidden=True)
+    async def assign_leader(ctx):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+
+        voting_channel = ctx.channel
+        if voting_channel.name != 'leader-voting':
+            return await ctx.send(ctx.author.mention + ", this is not a leader voting channel.")
+        gen_name = voting_channel.category.name  # Gets the team name from the Category name
+        guild = ctx.guild
+        role = discord.utils.get(guild.roles, name="pl-" + gen_name)  # The project leader role created in
+        # create_category_channels() function
+        if role.members:
+            return await ctx.send(ctx.author.mention + ", a project leader already exists for this project")
+
+        messages = await voting_channel.history().flatten()
+        leader = None
+        max_votes = 0
+
+        for message in messages:
+            if not (message.mentions and message.author.bot):
+                continue
+            thumbs_up_reaction = discord.utils.get(message.reactions, emoji="\N{THUMBS UP SIGN}")
+            if not thumbs_up_reaction:
+                continue
+            voters = await thumbs_up_reaction.users().flatten()
+            voters_number = len(voters)
+            if voters_number >= max_votes:
+                leader = message.mentions[0]
+                max_votes = voters_number
+        await leader.add_roles(role)
+        await voting_channel.delete()
