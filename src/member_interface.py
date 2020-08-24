@@ -13,7 +13,6 @@ CHECK_MARK_EMOJI = '\U0001F973'
 RESTART_EMOJI = '\U0001F504'
 THUMBS_UP_EMOJI = '\N{THUMBS UP SIGN}'
 
-
 # GitHub data
 github_token = environ.get('GITHUB_TOKEN')
 org_name = environ.get('ORG_NAME')
@@ -25,6 +24,29 @@ utc = pytz.UTC
 
 # Setup function
 def setup_member_interface(bot):
+    # -------------------------------- Extra admin commands --------------------------------
+    @bot.command(hidden=True)
+    async def start_leader_voting(ctx, team_name):
+        guild = ctx.guild
+        if not ctx.author.guild_permissions.administrator:
+            return await ctx.send(ctx.author.mention + ", you can't use this command")
+
+        role = discord.utils.get(guild.roles, name=team_name)
+        if not role:
+            return await ctx.send("This team doesn't exist")
+
+        leading_role = discord.utils.get(guild.roles, name="pl-" + team_name)
+        if leading_role.members:
+            return await ctx.send("A leader already exists for this team")
+
+        overwrites = {role: discord.PermissionOverwrite(view_channel=True),
+                      guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+        category = discord.utils.get(guild.categories, name=team_name)
+        if not category:
+            return await ctx.send("An error has occurred.")
+        await vote_for_leader(role, guild, overwrites, category)
+        await ctx.send(f'The leader voting process has been started for `{team_name}`')
+
     # -------------------------------- Getting info --------------------------------
     # Show channels
     @bot.command(brief="Shows all the channels that are related to the voting process")
@@ -46,37 +68,56 @@ def setup_member_interface(bot):
                        "sent to them with their github username to approve the idea.\n" +
                        f'The voters are given {github_sleep_time} seconds to reply with their Github usernames.')
 
-    @bot.command(brief="Shows all team members and their GitHub usernames")
-    async def show_all_teams(ctx):
-        users = User.get_teams()
+    @bot.command(brief="Shows all teams members and their GitHub usernames")
+    async def show_teams(ctx, team_name=''):
+        if team_name:  # If the user provided a team name
+            users = [User.get_team(team_name)]
+            title_name = team_name
+        else:  # If the user didn't provide a team name, show all teams
+            users = User.get_teams()
+            title_name = "Current users in teams"
         users_str = ''
         teams_str = ''
         githubs_str = ''
-        embed = discord.Embed(title="Current users in teams")
-        if not users:
+        embed = discord.Embed(title=title_name)
+
+        if not users:  # Happens when get_teams() function returns None
             return await ctx.send("There are currently no teams.")
+        elif users == [None]:  # Happens when get_team() function returns None
+            return await ctx.send("There is no team with this name.")
+
         for user in users:
-            guild_user = bot.get_user(user.user_id)
+            guild = ctx.guild
+            guild_user = guild.get_member(user.user_id)
             username = guild_user.name
             team = user.user_team
+            role = discord.utils.get(guild_user.roles, name=team)
+            if not role:  # If the user doesn't have the role (left the team)
+                continue
+            teams_str += team + "\n"
             github_username = user.user_github
             users_str += username + "\n"
-            teams_str += team + "\n"
             githubs_str += github_username + "\n"
+
+        users_str = "N/A" if not users_str else users_str
+        githubs_str = "N/A" if not githubs_str else githubs_str
+        teams_str = "N/A" if not teams_str else teams_str
         embed.add_field(name="Username", value=users_str)
         embed.add_field(name="Team", value=teams_str)
         embed.add_field(name="Github username", value=githubs_str)
         await ctx.send(embed=embed)
 
     # -------------------------------- Supporting functions --------------------------------
+    # Continue asking for Github usernames if the bot goes down
     async def continue_githubs(gen_name, participants_message):
         users = participants_message.mentions
         participants_list = []
         for user in users:
-            if not discord.utils.get(user.roles, name=gen_name):
+            if not discord.utils.get(user.roles, name=gen_name):  # If the mentioned user doesn't have the role
                 participants_list.append(user)
         await get_all_githubs(participants_list, gen_name, participants_message)
 
+    # Checks if an idea team is already created
     async def check_if_finished(gen_name):
         overview_channel_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_channel_id)
@@ -90,6 +131,7 @@ def setup_member_interface(bot):
 
         return idea_ended
 
+    # Adds the team role to the user and his GitHub user name to the db
     async def add_github(guild, guild_user, github_user, gen_name):
         g = Github(github_token)  # Logs into GitHub
         try:
@@ -102,6 +144,7 @@ def setup_member_interface(bot):
         except UnknownObjectException:  # If the user's GitHub was not found
             return False
 
+    # Checks if the user has already submitted the same GitHub username for the same team
     async def check_submitted(member, gen_name, github_user, channel):
         valid = True
         user = User.get(member.id, gen_name)
@@ -113,13 +156,13 @@ def setup_member_interface(bot):
             valid = False if role else True  # If the role already exists, there is no need to add it again
         else:
             await channel.send("Replacing your GitHub username...")
-            User.set(member.id, gen_name, github_user)
         return valid
 
     async def check_user_in_server(guild, member_id):
         guild_user = guild.get_member(member_id)
         return guild_user if guild_user else None
 
+    # Checks for any unfinished ideas that were stopped when the bot rebooted
     async def check_unfinished_ideas():
         print("Checking for any unfinished ideas...")
         for channel_name in ['idea-channel', 'overview-channel']:
@@ -132,6 +175,54 @@ def setup_member_interface(bot):
                     print(f'Found an unfinished process in {channel_name}!')
                     await message.add_reaction(RESTART_EMOJI)
 
+    # -------------------------------- Team creation --------------------------------
+    async def vote_for_leader(role, guild, overwrites, category):
+        voting_channel = await guild.create_text_channel("leader-voting", overwrites=overwrites, category=category)
+        await voting_channel.send("Vote for who you would like to be the project leader")
+        for member in role.members:
+            if member.bot:
+                continue
+            voting_message = await voting_channel.send(member.mention)
+            await voting_message.add_reaction(THUMBS_UP_EMOJI)
+
+    async def create_category_channels(guild, gen_name):
+        role = discord.utils.get(guild.roles, name=gen_name)
+
+        if not role:  # Creates the team role
+            role = await guild.create_role(gen_name)
+
+        # Remove the role from the bot
+        if role.members:
+            for member in role.members:
+                if member.bot:
+                    await member.remove_roles(role)
+                    break
+
+        if not discord.utils.get(guild.roles, name="pl-" + gen_name):  # Creates the leader role
+            await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
+
+        await role.edit(hoist=True)  # Makes the team role show in the members list
+
+        # Only the team role members will be able to view the channel
+        overwrites = {role: discord.PermissionOverwrite(view_channel=True),
+                      guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+
+        # Tries to see if a category already exists with the team name
+        category = discord.utils.get(guild.categories, name=gen_name)
+        if not category:  # Creates the team category
+            category = await guild.create_category(gen_name, overwrites=overwrites)
+        else:
+            return
+        text_channel = await guild.create_text_channel("General", overwrites=overwrites, category=category)
+        await guild.create_voice_channel("Collab room", overwrites=overwrites, category=category)
+        await text_channel.send(role.mention + " LET'S GO!!")
+        if not role.members:
+            return
+        await vote_for_leader(role, guild, overwrites, category)
+
+    async def create_team(guild, gen_name):
+        await create_category_channels(guild, gen_name)
+
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
@@ -142,8 +233,8 @@ def setup_member_interface(bot):
             return await ctx.send(f'{ctx.author.mention} fields are invalid! ' +
                                   'Please use "language" "idea name" "idea explanations" as arguments')
 
-        if len(idea_name) > 100:
-            return await ctx.send(ctx.author.mention + ", the idea name length must be less that 100 characters long")
+        if len(idea_name) > 95:
+            return await ctx.send(ctx.author.mention + ", the idea name length must be less that 95 characters long")
 
         # Get channel
         chanid = Config.get('idea-channel')
@@ -244,6 +335,7 @@ def setup_member_interface(bot):
                                         f'of the participants in `{gen_name}` ' +
                                         'replied with their GitHub usernames, idea approved!')
             await message.delete()
+            await create_team(message.guild, gen_name)
             # TODO: Create a category and channels for them
             # TODO: Give the role the permission to access this category
             # TODO: Create GitHub team in the organization
