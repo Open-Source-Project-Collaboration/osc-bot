@@ -26,10 +26,13 @@ utc = pytz.UTC
 def setup_member_interface(bot):
     # -------------------------------- Extra admin commands --------------------------------
     @bot.command(hidden=True)
-    async def start_leader_voting(ctx, team_name):
+    async def start_leader_voting(ctx, team_name=''):
         guild = ctx.guild
         if not ctx.author.guild_permissions.administrator:
             return await ctx.send(ctx.author.mention + ", you can't use this command")
+
+        if not team_name:
+            return await ctx.send(ctx.author.mention + ", please input a team name")
 
         role = discord.utils.get(guild.roles, name=team_name)
         if not role:
@@ -336,8 +339,6 @@ def setup_member_interface(bot):
                                         'replied with their GitHub usernames, idea approved!')
             await message.delete()
             await create_team(message.guild, gen_name)
-            # TODO: Create a category and channels for them
-            # TODO: Give the role the permission to access this category
             # TODO: Create GitHub team in the organization
             # TODO: Create GitHub repo in the organization
         else:
