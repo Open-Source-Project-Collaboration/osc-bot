@@ -1,5 +1,6 @@
 from config import Config
 from user import User
+from warn import Warn
 import discord
 
 
@@ -172,3 +173,15 @@ def setup_admin_interface(bot):
                 max_votes = voters_number
         await leader.add_roles(role)
         await voting_channel.delete()
+
+    @bot.command(hidden=True, brief="Show the number of warnings a user has received")
+    async def warns(ctx, user):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+        try:
+            member_id = int(user[3:-1])
+            member = ctx.guild.get_member(member_id)
+            warnings = Warn.warnings(member.id)
+            return await ctx.send(f'The specified member has {str(warnings)} warnings.')
+        except ValueError:
+            return await ctx.send("Please mention a member to show their warnings")

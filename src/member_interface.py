@@ -1,6 +1,7 @@
 import asyncio
 from config import Config
 from user import User
+from warn import Warn
 import discord.ext.commands.errors
 from github import Github, UnknownObjectException
 from os import environ
@@ -226,6 +227,26 @@ def setup_member_interface(bot):
     async def create_team(guild, gen_name):
         await create_category_channels(guild, gen_name)
 
+    async def kick_member(member, reason):
+        guild = member.guild
+        bot_channel_id = int(Config.get('bot-channel'))
+        bot_channel = bot.get_channel(bot_channel_id)
+        if member.guild_permissions.administrator:
+            return await bot_channel.send(f'Could not kick {member.mention}')
+        await guild.kick(member, reason=reason)
+        await bot_channel.send(f'{member.mention} has been kicked.\nReason: `{reason}`')
+        Warn.delete(member.id)
+        await member.send(f'You have been kicked from our server.\nReason: `{reason}`')
+
+    async def warn_member(member, reason):
+        Warn.warn(member.id)
+        bot_channel_id = int(Config.get('bot-channel'))
+        bot_channel = bot.get_channel(bot_channel_id)
+        await bot_channel.send(f'{member.mention} has been warned.\nReason: `{reason}`')
+        if Warn.warnings(member.id) >= 3:
+            await kick_member(member, "Reaching 3 or more warnings")
+        await member.send(f'You have been warned.\nReason: `{reason}`')
+
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
@@ -313,6 +334,14 @@ def setup_member_interface(bot):
             if message.embeds and message.author.bot and message.embeds[0].title == gen_name:
                 await message.delete()
 
+    async def warn_inactives(participants_message, gen_name):
+        voters = participants_message.mentions
+        for voter in voters:
+            role = discord.utils.get(voter.roles, name=gen_name)
+            if role:
+                continue
+            await warn_member(voter, "Failing to reply with their GitHub username after voting for an idea.")
+
     async def get_all_githubs(participants, gen_name, message):
         github_sleep_time = int(Config.get('github-sleep-time'))
         github_required_percentage = float(Config.get('github-required-percentage'))
@@ -329,7 +358,7 @@ def setup_member_interface(bot):
                 await user.add_roles(role)  # Adds the role to the bot
 
         await asyncio.sleep(github_sleep_time)
-
+        await warn_inactives(message, gen_name)
         overview_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_id)
         # If the required percentage or more replied with their GitHub accounts and got their roles added
