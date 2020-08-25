@@ -149,7 +149,8 @@ def setup_admin_interface(bot):
         voting_channel = ctx.channel
         if voting_channel.name != 'leader-voting':
             return await ctx.send(ctx.author.mention + ", this is not a leader voting channel.")
-        gen_name = voting_channel.category.name  # Gets the team name from the Category name
+        category = voting_channel.category
+        gen_name = category.name  # Gets the team name from the Category name
         guild = ctx.guild
         role = discord.utils.get(guild.roles, name="pl-" + gen_name)  # The project leader role created in
         # create_category_channels() function
@@ -172,7 +173,9 @@ def setup_admin_interface(bot):
                 leader = message.mentions[0]
                 max_votes = voters_number
         await leader.add_roles(role)
+        general_channel = discord.utils.get(guild.channels, category=category, name="general")
         await voting_channel.delete()
+        await general_channel.send(leader.mention + " is now the project leader!")
 
     @bot.command(hidden=True, brief="Show the number of warnings a user has received")
     async def warns(ctx, user):

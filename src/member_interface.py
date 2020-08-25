@@ -127,6 +127,8 @@ def setup_member_interface(bot):
         overview_channel = bot.get_channel(overview_channel_id)
         participants_messages = await overview_channel.history().flatten()
         idea_ended = True
+        if not participants_messages:
+            return idea_ended
         for message in participants_messages:
             if message.embeds and message.embeds[0].title == gen_name:
                 # If it is a participants messages containing an Embed
@@ -217,7 +219,7 @@ def setup_member_interface(bot):
             category = await guild.create_category(gen_name, overwrites=overwrites)
         else:
             return
-        text_channel = await guild.create_text_channel("General", overwrites=overwrites, category=category)
+        text_channel = await guild.create_text_channel("general", overwrites=overwrites, category=category)
         await guild.create_voice_channel("Collab room", overwrites=overwrites, category=category)
         await text_channel.send(role.mention + " LET'S GO!!")
         if not role.members:
