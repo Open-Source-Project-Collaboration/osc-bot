@@ -27,7 +27,7 @@ setup_admin_interface(bot)
 # Set default configs
 Config.set_init('idea-channel', '744885478188384287')
 Config.set_init('overview-channel', '744885556613480509')
-Config.set_init('github-channel', '746305634382643211')
+Config.set_init('bot-channel', '747503630986248313')
 Config.set_init('required-votes', '5')
 Config.set_init('time-to-wait', '1209600')
 Config.set_init('github-sleep-time', '1209600')
