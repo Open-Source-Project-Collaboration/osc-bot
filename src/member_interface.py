@@ -19,7 +19,6 @@ import pytz
 dotenv_path = path.join(path.dirname(__file__), '../.env')
 load_dotenv(dotenv_path)
 
-
 # Used emojis
 CHECK_MARK_EMOJI = '\U0001F973'
 RESTART_EMOJI = '\U0001F504'
@@ -32,6 +31,9 @@ org_name = environ.get('ORG_NAME')
 # Bot data
 online_since_date = None
 utc = pytz.UTC
+
+# TODO: remove_me command
+# TODO: activity_check command
 
 
 # Setup function
@@ -61,6 +63,14 @@ def setup_member_interface(bot):
             return await ctx.send("An error has occurred.")
         await vote_for_leader(role, guild, overwrites, category)
         await ctx.send(f'The leader voting process has been started for `{team_name}`')
+
+    @bot.command(hidden=True)
+    async def create_new_team(ctx, team_name):
+        if len(team_name) >= 45:
+            return await ctx.send(ctx.author.mention + ", the idea name must be less than 45 characters long.")
+        team_name = re.sub("([^a-z-])+", '', team_name).lower()  # Remove anything that is not a letter
+        team_name = re.sub("(-)+", '-', team_name)  # Replace multiple dashes with a single one
+        await create_team(ctx.guild, team_name)
 
     # -------------------------------- Getting info --------------------------------
     # Show channels
@@ -152,14 +162,14 @@ def setup_member_interface(bot):
     async def add_github(guild, guild_user, github_user, gen_name):
         g = Github(github_token)  # Logs into GitHub
         try:
-            g.get_user(github_user)  # Tries to find the user on GitHub
+            github = g.get_user(github_user)  # Tries to find the user on GitHub
             role = discord.utils.get(guild.roles, name=gen_name)  # Finds the role created in get_all_githubs function
 
             await guild_user.add_roles(role)  # Adds the role
             User.set(guild_user.id, gen_name, github_user)
-            return True
+            return github
         except UnknownObjectException:  # If the user's GitHub was not found
-            return False
+            return None
 
     # Checks if the user has already submitted the same GitHub username for the same team
     async def check_submitted(member, gen_name, github_user, channel):
@@ -191,6 +201,33 @@ def setup_member_interface(bot):
                 if message.embeds:  # If the message contains an Embed, add the restart emoji
                     print(f'Found an unfinished process in {channel_name}!')
                     await message.add_reaction(RESTART_EMOJI)
+
+    # -------------------------------- Team management --------------------------------
+    @bot.command(brief="Adds you to a team of your choice")
+    async def add_me(ctx, github_username="", team_name=""):
+        if github_username == "":
+            return await ctx.send(ctx.author.mention + ", please provide your GitHub username as a first argument.")
+        if team_name == "":
+            return await ctx.send(ctx.author.mention + ", please provide the team name as a second argument.")
+        category = discord.utils.get(ctx.guild.categories, name=team_name)
+        if not category:
+            return await ctx.send(ctx.author.mention + ", please enter a valid team name")
+        if not await check_submitted(ctx.author, team_name, github_username, ctx.channel):
+            return await ctx.send("Nothing to do here :)")
+
+        github_user = await add_github(ctx.guild, ctx.author, github_username, team_name)
+        if github_user:
+            await ctx.send(f'Thank you! I am giving you the {team_name} role...')
+        else:
+            await ctx.send("Invalid GitHub username.")
+
+        g = Github(github_token)
+        org = g.get_organization(org_name)
+        team = org.get_team_by_slug(team_name)
+        if not team:
+            return await ctx.send(ctx.author.mention + ", an error has occurred while adding you to the team.")
+        await add_membership(ctx.author, team_name, g, team)
+        await ctx.send("Done")
 
     # -------------------------------- Team creation --------------------------------
     async def vote_for_leader(role, guild, overwrites, category):
@@ -240,6 +277,14 @@ def setup_member_interface(bot):
         await vote_for_leader(role, guild, overwrites, category)
         return text_channel
 
+    async def add_membership(member, gen_name, github_client, team):
+        github_user = User.get(member.id, gen_name)
+        try:
+            github_user = github_client.get_user(github_user.user_github)
+            team.add_membership(github_user, role="maintainer")
+        except UnknownObjectException:
+            member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
+
     async def create_org_team(gen_name, team_members, github_client, org):
         teams = org.get_teams()
         if teams:  # If there are teams in the organization
@@ -247,6 +292,7 @@ def setup_member_interface(bot):
                 if team.name != gen_name:
                     continue
                 # If there is a team with the same name
+                print("Found an existing team!")
                 return team
 
         team = org.create_team(gen_name, privacy="closed")
@@ -255,13 +301,7 @@ def setup_member_interface(bot):
             return team
 
         for member in team_members:
-            github_user = User.get(member.id, gen_name)
-            try:
-                github_user = github_client.get_user(github_user.user_github)
-                team.add_membership(github_user, role="maintainer")
-            except UnknownObjectException:
-                member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
-                continue
+            await add_membership(member, gen_name, github_client, team)
 
         return team
 
@@ -272,6 +312,7 @@ def setup_member_interface(bot):
                 if repo.name != gen_name:
                     continue
                 # If a repository already exists for this idea
+                print("Found an existing repository!")
                 team.add_to_repos(repo)
                 return repo
 
@@ -289,7 +330,7 @@ def setup_member_interface(bot):
         org = g.get_organization(org_name)
 
         team = await create_org_team(gen_name, team_members, g, org)
-        await text_channel.send(f'https://github.com/orgs/{org_name}/{team.name}')
+        await text_channel.send(f'https://github.com/orgs/{org_name}/teams/{team.name}')
 
         repo = await create_repo(org, team, gen_name)
         await text_channel.send(f'https://github.com/{org_name}/{repo.name}')
@@ -467,6 +508,8 @@ def setup_member_interface(bot):
             voters_number = 0
             participants = msg.mentions[0].mention  # Add the idea owner as an initial participant
             participants_list = [msg.mentions[0]]  # A list to contain Members
+
+            # Get the votes
             for reaction in msg.reactions:
                 if reaction.emoji == THUMBS_UP_EMOJI:
                     users = await reaction.users().flatten()  # Find the users of this reaction

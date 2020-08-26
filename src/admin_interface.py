@@ -172,6 +172,9 @@ def setup_admin_interface(bot):
             if voters_number >= max_votes:
                 leader = message.mentions[0]
                 max_votes = voters_number
+
+        if not leader:
+            return await ctx.send("There is no leader to assign")
         await leader.add_roles(role)
         general_channel = discord.utils.get(guild.channels, category=category, name="general")
         await voting_channel.delete()

@@ -55,14 +55,14 @@ def setup_leader_interface(bot):
         if not is_leader and not ctx.author.guild_permissions.administrator:
             return await you_are_not_leader(ctx)
 
-        embed = discord.Embed(title="Leader commands")
-        commands = ""
+        commands = "```"
 
         for command in bot.commands:
             if not command.brief:
                 continue
             if "Leader command" in command.brief:  # Every leader command has this in its brief
-                commands += command.name + "\n"
+                commands += "\n" + command.name
 
-        embed.add_field(name="Command", value=commands)
-        return await ctx.send(embed=embed)
+        commands += "\n```"
+
+        return await ctx.send(commands)
