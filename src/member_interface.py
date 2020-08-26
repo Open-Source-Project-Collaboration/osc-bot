@@ -223,11 +223,49 @@ def setup_member_interface(bot):
         await guild.create_voice_channel("Collab room", overwrites=overwrites, category=category)
         await text_channel.send(role.mention + " LET'S GO!!")
         if not role.members:
-            return
+            return text_channel
         await vote_for_leader(role, guild, overwrites, category)
+        return text_channel
 
-    async def create_team(guild, gen_name):
-        await create_category_channels(guild, gen_name)
+    async def create_org_team(gen_name, team_members, github_client, org):
+        teams = org.get_teams()
+        for team in teams:
+            if team.name == gen_name:  # If there exists a team with the same name (it is a finished idea)
+                return await create_org_team(gen_name + "-latest", team_members, github_client, org)
+                # Recursion with -latest added to gen_name
+
+        team = org.create_team(gen_name)
+        if not team_members:
+            return team
+
+        for member in team_members:
+            github_username = User.get(member.id, gen_name)
+            try:
+                github_user = github_client.get_user(github_username)
+                team.add_membership(github_user, role="maintainer")
+            except UnknownObjectException:
+                member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
+                continue
+        return team
+
+    async def create_repo(org, team, gen_name):
+        repos = org.get_repos()
+        for repo in repos:
+            if repo.name == gen_name:
+                return create_repo(org, team, gen_name + "-latest")
+
+        repo = org.create_repo(gen_name, private=False)
+        team.add_to_repos(repo)
+        return repo
+
+    async def create_team(guild, gen_name, team_members):
+        text_channel = await create_category_channels(guild, gen_name)
+        g = Github(github_token)
+        org = g.get_organization(org_name)
+        team = await create_org_team(gen_name, team_members, g, org)
+        await text_channel.send(team.url)
+        repo = await create_repo(org, team, gen_name)
+        await text_channel.send(repo.url)
 
     async def kick_member(member, reason):
         guild = member.guild
@@ -369,7 +407,7 @@ def setup_member_interface(bot):
                                         f'of the participants in `{gen_name}` ' +
                                         'replied with their GitHub usernames, idea approved!')
             await message.delete()
-            await create_team(message.guild, gen_name)
+            await create_team(message.guild, gen_name, role.members)
             # TODO: Create GitHub team in the organization
             # TODO: Create GitHub repo in the organization
         else:
