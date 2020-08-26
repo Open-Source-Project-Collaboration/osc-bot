@@ -218,7 +218,10 @@ def setup_member_interface(bot):
         if not category:  # Creates the team category
             category = await guild.create_category(gen_name, overwrites=overwrites)
         else:
-            return
+            for channel in category.channels:
+                if channel.name != "general":
+                    continue
+                return channel
         text_channel = await guild.create_text_channel("general", overwrites=overwrites, category=category)
         await guild.create_voice_channel("Collab room", overwrites=overwrites, category=category)
         await text_channel.send(role.mention + " LET'S GO!!")
@@ -229,12 +232,15 @@ def setup_member_interface(bot):
 
     async def create_org_team(gen_name, team_members, github_client, org):
         teams = org.get_teams()
-        for team in teams:
-            if team.name == gen_name:  # If there exists a team with the same name (it is a finished idea)
-                return await create_org_team(gen_name + "-latest", team_members, github_client, org)
-                # Recursion with -latest added to gen_name
+        if teams:  # If there are teams in the organization
+            for team in teams:
+                if team.name != gen_name:
+                    continue
+                # If there is a team with the same name
+                return team
 
         team = org.create_team(gen_name)
+        # If there are no role members
         if not team_members:
             return team
 
@@ -246,13 +252,18 @@ def setup_member_interface(bot):
             except UnknownObjectException:
                 member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
                 continue
+
         return team
 
     async def create_repo(org, team, gen_name):
         repos = org.get_repos()
-        for repo in repos:
-            if repo.name == gen_name:
-                return create_repo(org, team, gen_name + "-latest")
+        if repos:  # If there are repos in the organization
+            for repo in repos:
+                if repo.name != gen_name:
+                    continue
+                # If a repository already exists for this idea
+                team.add_to_repos(repo)
+                return repo
 
         repo = org.create_repo(gen_name, private=False)
         team.add_to_repos(repo)
@@ -260,10 +271,13 @@ def setup_member_interface(bot):
 
     async def create_team(guild, gen_name, team_members):
         text_channel = await create_category_channels(guild, gen_name)
+
         g = Github(github_token)
         org = g.get_organization(org_name)
+
         team = await create_org_team(gen_name, team_members, g, org)
         await text_channel.send(team.url)
+
         repo = await create_repo(org, team, gen_name)
         await text_channel.send(repo.url)
 
