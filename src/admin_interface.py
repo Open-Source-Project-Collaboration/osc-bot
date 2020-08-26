@@ -185,6 +185,6 @@ def setup_admin_interface(bot):
             member_id = int(user[3:-1])
             member = ctx.guild.get_member(member_id)
             warnings = Warn.warnings(member.id)
-            return await ctx.send(f'The specified member has {str(warnings)} warnings.')
+            return await ctx.send(f'The specified member has {str(warnings)} warning(s).')
         except ValueError:
             return await ctx.send("Please mention a member to show their warnings")

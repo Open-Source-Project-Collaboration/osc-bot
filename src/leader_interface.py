@@ -32,6 +32,7 @@ def setup_leader_interface(bot):
         else:  # If the user replied with a yes
             for channel in category.channels:  # Delete all the channels related to the team
                 await channel.delete()
+            await category.delete()
             finished_channel_id = int(Config.get("finished-channel"))  # The channel to post the finished project
             finished_channel = bot.get_channel(finished_channel_id)
             role = discord.utils.get(ctx.guild.roles, name=gen_name)  # The team role

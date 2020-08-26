@@ -1,13 +1,19 @@
+from os import path, environ
+from dotenv import load_dotenv
 import asyncio
 from config import Config
 from user import User
 from warn import Warn
 import discord.ext.commands.errors
 from github import Github, UnknownObjectException
-from os import environ
 import re
 from datetime import datetime, timezone
 import pytz
+
+# Set up .env path
+dotenv_path = path.join(path.dirname(__file__), '../.env')
+load_dotenv(dotenv_path)
+
 
 # Used emojis
 CHECK_MARK_EMOJI = '\U0001F973'
@@ -202,7 +208,6 @@ def setup_member_interface(bot):
             for member in role.members:
                 if member.bot:
                     await member.remove_roles(role)
-                    break
 
         if not discord.utils.get(guild.roles, name="pl-" + gen_name):  # Creates the leader role
             await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
@@ -239,15 +244,15 @@ def setup_member_interface(bot):
                 # If there is a team with the same name
                 return team
 
-        team = org.create_team(gen_name)
+        team = org.create_team(gen_name, privacy="closed")
         # If there are no role members
         if not team_members:
             return team
 
         for member in team_members:
-            github_username = User.get(member.id, gen_name)
+            github_user = User.get(member.id, gen_name)
             try:
-                github_user = github_client.get_user(github_username)
+                github_user = github_client.get_user(github_user.user_github)
                 team.add_membership(github_user, role="maintainer")
             except UnknownObjectException:
                 member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
@@ -269,17 +274,20 @@ def setup_member_interface(bot):
         team.add_to_repos(repo)
         return repo
 
-    async def create_team(guild, gen_name, team_members):
+    async def create_team(guild, gen_name):
+
         text_channel = await create_category_channels(guild, gen_name)
+        role = discord.utils.get(guild.roles, name=gen_name)
+        team_members = role.members
 
         g = Github(github_token)
         org = g.get_organization(org_name)
 
         team = await create_org_team(gen_name, team_members, g, org)
-        await text_channel.send(team.url)
+        await text_channel.send(f'https://github.com/orgs/{org_name}/{team.name}')
 
         repo = await create_repo(org, team, gen_name)
-        await text_channel.send(repo.url)
+        await text_channel.send(f'https://github.com/{org_name}/{repo.name}')
 
     async def kick_member(member, reason):
         guild = member.guild
@@ -421,7 +429,7 @@ def setup_member_interface(bot):
                                         f'of the participants in `{gen_name}` ' +
                                         'replied with their GitHub usernames, idea approved!')
             await message.delete()
-            await create_team(message.guild, gen_name, role.members)
+            await create_team(message.guild, gen_name)
             # TODO: Create GitHub team in the organization
             # TODO: Create GitHub repo in the organization
         else:
