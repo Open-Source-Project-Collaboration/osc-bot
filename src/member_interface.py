@@ -1,13 +1,24 @@
+from os import path, environ
+from dotenv import load_dotenv
+
 import asyncio
+
 from config import Config
 from user import User
 from warn import Warn
+
 import discord.ext.commands.errors
+
 from github import Github, UnknownObjectException
-from os import environ
+
 import re
 from datetime import datetime, timezone
 import pytz
+
+# Set up .env path
+dotenv_path = path.join(path.dirname(__file__), '../.env')
+load_dotenv(dotenv_path)
+
 
 # Used emojis
 CHECK_MARK_EMOJI = '\U0001F973'
@@ -202,7 +213,6 @@ def setup_member_interface(bot):
             for member in role.members:
                 if member.bot:
                     await member.remove_roles(role)
-                    break
 
         if not discord.utils.get(guild.roles, name="pl-" + gen_name):  # Creates the leader role
             await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
@@ -218,16 +228,71 @@ def setup_member_interface(bot):
         if not category:  # Creates the team category
             category = await guild.create_category(gen_name, overwrites=overwrites)
         else:
-            return
+            for channel in category.channels:
+                if channel.name != "general":
+                    continue
+                return channel
         text_channel = await guild.create_text_channel("general", overwrites=overwrites, category=category)
         await guild.create_voice_channel("Collab room", overwrites=overwrites, category=category)
         await text_channel.send(role.mention + " LET'S GO!!")
         if not role.members:
-            return
+            return text_channel
         await vote_for_leader(role, guild, overwrites, category)
+        return text_channel
+
+    async def create_org_team(gen_name, team_members, github_client, org):
+        teams = org.get_teams()
+        if teams:  # If there are teams in the organization
+            for team in teams:
+                if team.name != gen_name:
+                    continue
+                # If there is a team with the same name
+                return team
+
+        team = org.create_team(gen_name, privacy="closed")
+        # If there are no role members
+        if not team_members:
+            return team
+
+        for member in team_members:
+            github_user = User.get(member.id, gen_name)
+            try:
+                github_user = github_client.get_user(github_user.user_github)
+                team.add_membership(github_user, role="maintainer")
+            except UnknownObjectException:
+                member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
+                continue
+
+        return team
+
+    async def create_repo(org, team, gen_name):
+        repos = org.get_repos()
+        if repos:  # If there are repos in the organization
+            for repo in repos:
+                if repo.name != gen_name:
+                    continue
+                # If a repository already exists for this idea
+                team.add_to_repos(repo)
+                return repo
+
+        repo = org.create_repo(gen_name, private=False)
+        team.add_to_repos(repo)
+        return repo
 
     async def create_team(guild, gen_name):
-        await create_category_channels(guild, gen_name)
+
+        text_channel = await create_category_channels(guild, gen_name)
+        role = discord.utils.get(guild.roles, name=gen_name)
+        team_members = role.members
+
+        g = Github(github_token)
+        org = g.get_organization(org_name)
+
+        team = await create_org_team(gen_name, team_members, g, org)
+        await text_channel.send(f'https://github.com/orgs/{org_name}/{team.name}')
+
+        repo = await create_repo(org, team, gen_name)
+        await text_channel.send(f'https://github.com/{org_name}/{repo.name}')
 
     async def kick_member(member, reason):
         guild = member.guild
