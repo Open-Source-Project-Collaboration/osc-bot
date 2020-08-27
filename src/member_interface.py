@@ -33,6 +33,8 @@ online_since_date = None
 utc = pytz.UTC
 
 # TODO: activity_check command
+# TODO: Don't restart voting period when bot is down
+# TODO: Command cool-down
 
 
 # Setup function
@@ -71,6 +73,48 @@ def setup_member_interface(bot):
         team_name = re.sub("(-)+", '-', team_name)  # Replace multiple dashes with a single one
         await create_team(ctx.guild, team_name)
         await ctx.send(f'Created new team `{team_name}`')
+
+    @bot.command(hidden=True, brief="Checks the members contribution activities")
+    async def activity_check(ctx):
+        if not ctx.author.guild_permissions.administrator:
+            await ctx.message.delete()
+            return await ctx.send(ctx.author.mention + ", you can't do that", delete_after=3.0)
+
+        if datetime.now(tz=timezone.utc).strftime("%A") != "Thursday":  # If it isn't Saturday TODO: change
+            return await ctx.send(ctx.author.mention + ", you can only do activity checks on Saturdays (UTC)")
+
+        g = Github(github_token)
+        org = g.get_organization(org_name)
+        users = User.get_teams()  # The users in the database
+        bot_channel_id = int(Config.get('bot-channel'))
+        bot_channel = bot.get_channel(bot_channel_id)
+
+        for user in users:
+            gen_name = user.user_team
+            status = "inactive"
+
+            guild_user = ctx.guild.get_member(user.user_id)  # The user in the server
+            role = discord.utils.get(ctx.guild.roles, name=gen_name)  # The team role
+            repo = org.get_repo(gen_name)  # The team repository
+            stats_contributors = repo.get_stats_contributors()
+            if not repo or not role or not guild_user or not stats_contributors:
+                continue
+
+            for stat in stats_contributors:
+                if stat.author.name != user.user_github:
+                    continue
+                for week in stat.weeks:
+                    current_utc = datetime.now(tz=timezone.utc)  # The current time in UTC
+                    commit_start_week = utc.localize(week.w)  # The commit start of the week (Sunday)
+                    time_difference = current_utc - commit_start_week
+                    day_difference = time_difference.days  # The time difference in days
+                    if day_difference < 13:  # If the user has committed in the past two weeks, continue
+                        status = 'active'
+            # Check the status
+            if status == 'inactive':
+                await warn_member(guild_user, f'Not contributing in {gen_name} for more than two weeks')
+
+            await bot_channel.send(f'Name: {guild_user.mention} | Team: **{gen_name}** | Status: **{status}**')
 
     # -------------------------------- Getting info --------------------------------
     # Show channels
@@ -236,7 +280,7 @@ def setup_member_interface(bot):
 
         github_user = await add_github(ctx.guild, ctx.author, github_username, team_name)
         if github_user:
-            await ctx.send(f'Thank you! I am giving you the {team_name} role...')
+            await ctx.send(f'Thank you! I am giving you the `{team_name}` role...')
         else:
             await ctx.send("Invalid GitHub username.")
 

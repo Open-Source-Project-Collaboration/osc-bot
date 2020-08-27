@@ -205,6 +205,8 @@ def setup_admin_interface(bot):
 
     @bot.command(hidden=True, brief="Deletes a team")
     async def delete_team(ctx, team_name):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
         role = discord.utils.get(ctx.guild.roles, name=team_name)
         if not role:
             return await ctx.send(ctx.author.mention + ", invalid team name")
