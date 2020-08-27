@@ -229,4 +229,5 @@ def setup_admin_interface(bot):
         await category.delete()
         await role.delete()
         await leader_role.delete()
+        User.delete_team(team_name)
         await ctx.send(f'Deleted the `{team_name}` team.')
