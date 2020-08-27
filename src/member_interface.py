@@ -70,6 +70,7 @@ def setup_member_interface(bot):
         team_name = re.sub("([^a-z-])+", '', team_name).lower()  # Remove anything that is not a letter
         team_name = re.sub("(-)+", '-', team_name)  # Replace multiple dashes with a single one
         await create_team(ctx.guild, team_name)
+        await ctx.send(f'Created new team `{team_name}`')
 
     # -------------------------------- Getting info --------------------------------
     # Show channels
@@ -283,7 +284,7 @@ def setup_member_interface(bot):
         role = discord.utils.get(guild.roles, name=gen_name)
 
         if not role:  # Creates the team role
-            role = await guild.create_role(gen_name)
+            role = await guild.create_role(name=gen_name)
 
         # Remove the role from the bot
         if role.members:
