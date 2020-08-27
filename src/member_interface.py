@@ -32,7 +32,6 @@ org_name = environ.get('ORG_NAME')
 online_since_date = None
 utc = pytz.UTC
 
-# TODO: remove_me command
 # TODO: activity_check command
 
 
@@ -203,16 +202,35 @@ def setup_member_interface(bot):
                     await message.add_reaction(RESTART_EMOJI)
 
     # -------------------------------- Team management --------------------------------
+    async def check_team_existence(ctx, team_name, roles):
+        author_mention = ctx.author.mention
+        role = discord.utils.get(roles, name=team_name)
+        if not role:
+            await ctx.send(author_mention + ", invalid team name")
+            return None
+
+        category = discord.utils.get(ctx.guild.categories, name=team_name)
+        if not category:
+            await ctx.send(author_mention + ", invalid team name")
+            return None
+
+        if role.permissions.administrator:
+            await ctx.send(author_mention + ", you can't do that")
+            return None
+
+        return role
+
     @bot.command(brief="Adds you to a team of your choice")
     async def add_me(ctx, github_username="", team_name=""):
         if github_username == "":
             return await ctx.send(ctx.author.mention + ", please provide your GitHub username as a first argument.")
         if team_name == "":
             return await ctx.send(ctx.author.mention + ", please provide the team name as a second argument.")
-        category = discord.utils.get(ctx.guild.categories, name=team_name)
-        if not category:
-            return await ctx.send(ctx.author.mention + ", please enter a valid team name")
+        if not await check_team_existence(ctx, team_name, ctx.guild.roles):
+            return
         if not await check_submitted(ctx.author, team_name, github_username, ctx.channel):
+            # Checks if the user has already inputted his GitHub and if he has the role
+            # If the user has the role and has already inputted the same GitHub name
             return await ctx.send("Nothing to do here :)")
 
         github_user = await add_github(ctx.guild, ctx.author, github_username, team_name)
@@ -228,6 +246,28 @@ def setup_member_interface(bot):
             return await ctx.send(ctx.author.mention + ", an error has occurred while adding you to the team.")
         await add_membership(ctx.author, team_name, g, team)
         await ctx.send("Done")
+
+    @bot.command(brief="Removes you from a team you are a member of")
+    async def remove_me(ctx, team_name):
+        role = await check_team_existence(ctx, team_name, ctx.author.roles)
+        if not role:
+            return
+        await ctx.author.remove_roles(role)
+        leader_role = discord.utils.get(ctx.author.roles, name='pl-' + team_name)
+        if leader_role:
+            await ctx.author.remove_roles(leader_role)
+
+        g = Github(github_token)
+        org = g.get_organization(org_name)
+        team = org.get_team_by_slug(team_name)
+        if not team:
+            return await ctx.send(ctx.author.mention + ", couldn't find the team on GitHub")
+        user = User.get(ctx.author.id, team_name)
+        github_username = user.user_github
+        github_user = g.get_user(github_username)
+        team.remove_membership(github_user)
+
+        await ctx.send(ctx.author.mention + ", I have removed you from the GitHub team")
 
     # -------------------------------- Team creation --------------------------------
     async def vote_for_leader(role, guild, overwrites, category):
@@ -476,8 +516,7 @@ def setup_member_interface(bot):
                                         'replied with their GitHub usernames, idea approved!')
             await message.delete()
             await create_team(message.guild, gen_name)
-            # TODO: Create GitHub team in the organization
-            # TODO: Create GitHub repo in the organization
+
         else:
             await overview_channel.send(
                 f'Less than {str(github_required_percentage * 100)}% of the participants in `{gen_name}` '
