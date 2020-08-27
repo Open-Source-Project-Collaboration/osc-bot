@@ -96,12 +96,10 @@ def setup_member_interface(bot):
             guild_user = ctx.guild.get_member(user.user_id)  # The user in the server
             role = discord.utils.get(ctx.guild.roles, name=gen_name)  # The team role
             repo = org.get_repo(gen_name)  # The team repository
-            if not repo or not role or not guild_user:
+            stats_contributors = repo.get_stats_contributors()
+            if not repo or not role or not guild_user or not stats_contributors:
                 continue
 
-            stats_contributors = repo.get_stats_contributors()
-            if not stats_contributors:  # If there aren't any contributions, continue
-                continue
             for stat in stats_contributors:
                 if stat.author.name != user.user_github:
                     continue
