@@ -32,6 +32,7 @@ org_name = environ.get('ORG_NAME')
 online_since_date = None
 utc = pytz.UTC
 
+
 # TODO: Command cool-down
 
 
@@ -78,8 +79,10 @@ def setup_member_interface(bot):
             await ctx.message.delete()
             return await ctx.send(ctx.author.mention + ", you can't do that", delete_after=3.0)
 
-        if datetime.now(tz=timezone.utc).strftime("%A") != "Thursday":  # If it isn't Saturday TODO: change
+        if datetime.now(tz=timezone.utc).strftime("%A") != "Friday":  # If it isn't Saturday TODO: change
             return await ctx.send(ctx.author.mention + ", you can only do activity checks on Saturdays (UTC)")
+
+        await ctx.send("Please wait...")
 
         g = Github(github_token)
         org = g.get_organization(org_name)
@@ -114,6 +117,8 @@ def setup_member_interface(bot):
 
             await bot_channel.send(f'Name: {guild_user.mention} | Team: **{gen_name}** | Status: **{status}**')
 
+        await ctx.send("Done.")
+
     # -------------------------------- Getting info --------------------------------
     # Show channels
     @bot.command(brief="Shows all the channels that are related to the voting process")
@@ -125,15 +130,30 @@ def setup_member_interface(bot):
 
     @bot.command(brief="Shows information about the voting process")
     async def voting_info(ctx):
-        time_to_wait = Config.get('time-to-wait')
+        time_to_wait = int(Config.get('time-to-wait'))
         req_votes = Config.get('required-votes')
-        github_sleep_time = Config.get('github-sleep-time')
+        github_sleep_time = int(Config.get('github-sleep-time'))
         github_required_percentage = Config.get('github-required-percentage')
-        await ctx.send(f'The current voting period is {time_to_wait} seconds.\n' +
-                       f'The required votes for each idea are {req_votes} votes.\n' +
-                       f'{float(github_required_percentage) * 100}% of the voters must reply to the bot message ' +
-                       "sent to them with their github username to approve the idea.\n" +
-                       f'The voters are given {github_sleep_time} seconds to reply with their Github usernames.')
+
+        voting_days = str(time_to_wait // (24 * 60 * 60))
+        voting_hours, voting_minutes, voting_seconds = await format_seconds(time_to_wait)
+        voting_hours, voting_minutes, voting_seconds = \
+            str(round(voting_hours)), str(round(voting_minutes)), str(round(voting_seconds))
+
+        github_days = str(github_sleep_time // (24 * 60 * 60))
+        github_hours, github_minutes, github_seconds = await format_seconds(github_sleep_time)
+        github_hours, github_minutes, github_seconds = \
+            str(round(github_hours)), str(round(github_minutes)), str(round(github_seconds))
+
+        await ctx.send(f'The current voting period is `{voting_days}` day(s) (`{voting_hours}` hour(s), '
+                       f'`{voting_minutes}` '
+                       f'minute(s) and `{voting_seconds}` second(s)).\n' +
+                       f'The required votes for each idea are `{req_votes}` votes.\n' +
+                       f'`{float(github_required_percentage) * 100}`% of the voters must reply to the bot DM ' +
+                       "with their github username to approve the idea.\n" +
+                       f'The voters are given `{github_days}` day(s) (`{github_hours}` hour(s), '
+                       f'`{github_minutes}` minute(s) and `{github_seconds}` second(s)) '
+                       f'to reply with their Github usernames.')
 
     @bot.command(brief="Shows all teams members and their GitHub usernames")
     async def show_teams(ctx, team_name=''):
@@ -175,28 +195,42 @@ def setup_member_interface(bot):
         await ctx.send(embed=embed)
 
     # -------------------------------- Supporting functions --------------------------------
-    async def get_time_to_wait(message):
-        message_creation_time: datetime = utc.localize(message.created_at)
-        time_to_wait = int(Config.get('time-to-wait'))
+    async def format_seconds(seconds):
+        hours_decimal = seconds / 3600
+        hours, minutes_in_hours = divmod(hours_decimal, 1)
+        minutes_decimal = minutes_in_hours * 60
+        minutes, seconds_in_minutes = divmod(minutes_decimal, 1)
+        seconds = seconds_in_minutes * 60
+        return hours, minutes, seconds
+
+    async def get_time_to_wait(message, voting: bool):
+        # Set the message creation time to the creation date if it hasn't been edited, otherwise set it to the edit date
+        if not message.edited_at:
+            message_creation_time: datetime = utc.localize(message.created_at)
+        else:
+            message_creation_time: datetime = utc.localize(message.edited_at)
+        time_to_wait = int(Config.get('time-to-wait')) if voting else int(Config.get('github-sleep-time'))
         time_to_wait_addition = timedelta(seconds=time_to_wait)  # Seconds in timedelta to be able to add it to the
         # message creation date
         idea_end_date = message_creation_time + time_to_wait_addition  # The date at which the idea will end
         final_time = idea_end_date - datetime.now(tz=timezone.utc)
-        return final_time.days, final_time.seconds
+        days = final_time.days
+        seconds = final_time.seconds
+        if days < 0:
+            days = 0
+            seconds = 0
+        return days, seconds
 
     # Continue asking for Github usernames if the bot goes down
     async def continue_githubs(gen_name, participants_message):
-        days, seconds = await get_time_to_wait(participants_message)
-        if days < 0:  # If the time has passed
-            days = 0
-            seconds = 0
-            time_to_wait = 0
-        else:
-            time_to_wait = days * 24 * 60 * 60 + seconds
+        days, seconds = await get_time_to_wait(participants_message, voting=False)
+        time_to_wait = days * 24 * 60 * 60 + seconds
+        hours_show, minutes_show, seconds_show = await format_seconds(seconds)
         overview_channel_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_channel_id)
-        await overview_channel.send(f'Voters for {gen_name} have {str(days)} day(s) ' +
-                                    f'and {str(seconds)} second(s) to send their GitHub accounts')
+        await overview_channel.send(f'Voters for `{gen_name}` have `{str(days)}` day(s), `{str(round(hours_show))}` '
+                                    f'hour(s), `{str(round(minutes_show))}` minutes and `{str(round(seconds_show))}` '
+                                    f'seconds to send their GitHub usernames')
         users = participants_message.mentions
         participants_list = []
         for user in users:
@@ -206,18 +240,9 @@ def setup_member_interface(bot):
 
     # Continue voting if the bot goes down
     async def continue_voting(message, gen_name):
-        days, seconds = await get_time_to_wait(message)
-        if days < 0:  # If the time has passed
-            days = 0
-            seconds = 0
-            time_to_wait = 0
-        else:
-            time_to_wait = days * 24 * 60 * 60 + seconds
-        overview_channel_id = int(Config.get('overview-channel'))
-        overview_channel = bot.get_channel(overview_channel_id)
-        await overview_channel.send(f'{str(days)} day(s) and {str(seconds)} second(s) ' +
-                                    f'remaining till voting ends on the {gen_name} idea.')
-        await wait_for_votes(message.id, gen_name, time_to_wait)
+        trials_field = discord.utils.get(message.embeds[0].fields, name="Trials")
+        trials = int(trials_field.value)
+        await wait_for_votes(message.id, gen_name, trials)
 
     # Checks if an idea team is already created
     async def check_if_finished(gen_name):
@@ -476,6 +501,7 @@ def setup_member_interface(bot):
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
+    @discord.ext.commands.cooldown(1, 300, discord.ext.commands.BucketType.user)
     async def new_idea(ctx, lang='', idea_name='', idea_explanation='N/A'):
 
         # Check fields
@@ -524,13 +550,13 @@ def setup_member_interface(bot):
             embed = discord.Embed(title=gen_name, color=0x00ff00)
             embed.add_field(name="Idea Explanation", value=idea_explanation)
             embed.add_field(name='Programming Language', value=lang, inline=False)
+            embed.insert_field_at(2, name="Trials", value="0")
             msg = await chan.send(f'{ctx.author.mention} proposed an idea, please vote using a thumbs up reaction:',
                                   embed=embed)
             await msg.add_reaction('👍')
 
             # Watch it
-            time_to_wait = int(Config.get('time-to-wait'))
-            await wait_for_votes(msg.id, gen_name, time_to_wait)
+            await wait_for_votes(msg.id, gen_name, 0)
         except discord.HTTPException:
             await overview_channel.send(ctx.author.mention +
                                         ", an error has occurred while processing one of your ideas")
@@ -540,10 +566,19 @@ def setup_member_interface(bot):
         embed = discord.Embed(title=gen_name)
         embed.add_field(name="Idea", value=gen_name)
         embed.add_field(name="Guild ID", value=voter.guild.id)
-        await voter.send('Hello!\nWe noticed that you have voted for the following idea:\n' +
-                         'Please send me your GitHub username so I can add you to the team.\n' +
-                         "If you receive no reply, then the bot is down or the idea team has already been created.\n" +
-                         "If you accidentally send someone else's username, simply re-send your username", embed=embed)
+        message = await voter.send('Hello!\nWe noticed that you have voted for the following idea:\n' +
+                                   'Please send me your GitHub username so I can add you to the team.\n' +
+                                   "If you receive no reply, then the bot is down or the idea team "
+                                   "has already been created.\n" +
+                                   "If you accidentally send someone else's username, simply re-send your username",
+                                   embed=embed)
+        dm_channel = message.channel
+        messages = await dm_channel.history().flatten()
+        # Clean up Bot messages sent before it was rebooted
+        for message in messages:
+            if utc.localize(message.created_at) < online_since_date and message.author.bot and message.embeds:
+                # If it was a message sent before the bot rebooted, delete it
+                await message.delete()
 
     # Notifies the participants about the idea processing results
     async def notify_voters(participants_message, gen_name):
@@ -606,7 +641,7 @@ def setup_member_interface(bot):
         await notify_voters(message, gen_name)
 
     # Watches a vote for 14 days
-    async def wait_for_votes(message_id, gen_name, waiting_time):
+    async def wait_for_votes(message_id, gen_name, trials):
 
         # Get channels
         overview_chan = Config.get('overview-channel')
@@ -617,9 +652,17 @@ def setup_member_interface(bot):
         msg = None
 
         # Trial count
-        for _ in range(4):
+        while trials <= 3:
             # Wait for 14 days
-            await asyncio.sleep(waiting_time)
+            msg = await idea_channel.fetch_message(message_id)
+            days, seconds = await get_time_to_wait(msg, voting=True)
+            hours_show, minutes_show, seconds_show = await format_seconds(seconds)
+            time_to_wait = days * 24 * 60 * 60 + seconds
+            await overview_chan.send(f'`{str(days)}` day(s), `{str(round(hours_show))}` hour(s), '
+                                     f'`{str(round(minutes_show))}` minute(s) '
+                                     f'and `{str(round(seconds_show))}` second(s) are '
+                                     f'remaining till voting ends on the `{gen_name}` idea.')
+            await asyncio.sleep(time_to_wait)
             msg = await idea_channel.fetch_message(message_id)
             voters_number = 0
             participants = msg.mentions[0].mention  # Add the idea owner as an initial participant
@@ -632,6 +675,7 @@ def setup_member_interface(bot):
                     voters_number = len(users)
                     for user in users:
                         if user == msg.mentions[0]:  # If the user is the owner of the idea, continue
+                            voters_number -= 1
                             continue
                         participants += "\n" + user.mention
                         participants_list.append(user)
@@ -647,13 +691,16 @@ def setup_member_interface(bot):
                     f'''Voting for {gen_name} has ended, **approved**!\n'''
                     f'''Participants:\n{participants}\nPlease check your messages
                     ''', embed=embed)
-                time_to_wait = int(Config.get('time-to-wait'))
-                return await get_all_githubs(participants_list, gen_name, participants_message, time_to_wait)
+                github_wait = int(Config.get('github-sleep-time'))
+                return await get_all_githubs(participants_list, gen_name, participants_message, github_wait)
 
             # If the votes aren't enough
             await overview_chan.send(
                 f'Votes for `{gen_name}` were not enough, waiting for more votes...'
             )
+            embed = msg.embeds[0].set_field_at(2, name="Trials", value=str(trials + 1))
+            await msg.edit(embed=embed)
+            trials += 1
             continue  # Wait 14 days more
 
         # Trials end here
@@ -709,28 +756,6 @@ def setup_member_interface(bot):
             else:  # If it is another emoji, remove the reaction
                 await message.remove_reaction(reaction.emoji, reaction.member)
 
-    # Watch for reaction remove
-    @bot.event
-    async def on_reaction_remove(reaction, member):
-        message = reaction.message
-        idea_id = int(Config.get('idea-channel'))
-        if message.channel.id == idea_id and message.author.bot and reaction.emoji == THUMBS_UP_EMOJI:
-            if member == message.mentions[0]:  # If the reaction remover is the owner of the idea
-                users = await reaction.users().flatten()
-                replacer = "No owner "
-                if len(users) > 1:  # There are voters other than the bot
-                    bot_replace = False
-                else:
-                    bot_replace = True
-
-                for user in users:  # Replace with bot if there aren't votes, otherwise replace with user
-                    if user.bot == bot_replace:
-                        replacer = user.mention
-
-                new_content = message.content.replace(message.mentions[0].mention, replacer)
-                await message.edit(content=new_content)
-                # Replace the owner with the voter
-
     # Watch messages addition to check for sent GitHub accounts
     @bot.event
     async def on_message(message):
@@ -753,13 +778,7 @@ def setup_member_interface(bot):
         await channel.send("Hey there, please wait...")
         for message in messages:
             if not message.embeds:
-                # Looks for a message containing an embed
                 continue
-            if utc.localize(message.created_at) < online_since_date and message.author.bot:
-                # If it was a message sent before the bot rebooted, delete it
-                await message.delete()
-                continue
-
             embed = message.embeds[0]
             gen_name = embed.title  # Gets the idea name from the message sent to user
 
@@ -794,3 +813,11 @@ def setup_member_interface(bot):
             return await channel.send("Done")
         else:
             return await channel.send("Nothing to do here :)")
+
+    # Command error handling as cool-down
+    @bot.event
+    async def on_command_error(ctx, error):
+        if isinstance(error, discord.ext.commands.CommandOnCooldown):
+            await ctx.send(f'You can only use this command again after `{str(round(error.retry_after))}` seconds.')
+        elif isinstance(error, discord.ext.commands.CommandNotFound):
+            await ctx.send(f'Unknown command: `{ctx.message.content}`')

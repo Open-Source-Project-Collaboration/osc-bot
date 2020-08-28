@@ -32,6 +32,16 @@ class Warn(Base):
         session.commit()
 
     @staticmethod
+    def unwarn(user_id):
+        user = Warn.get(user_id)
+        if not user:
+            return
+        user.warns -= 1
+        if user.warns == 0:
+            session.delete(user)
+        session.commit()
+
+    @staticmethod
     def delete(user_id):
         user = Warn.get(user_id)
         if user:

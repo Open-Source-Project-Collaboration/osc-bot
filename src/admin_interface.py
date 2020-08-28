@@ -197,8 +197,7 @@ def setup_admin_interface(bot):
             return await you_are_not_admin(ctx)
         try:
             member_id = int(user[3:-1])
-            member = ctx.guild.get_member(member_id)
-            warnings = Warn.warnings(member.id)
+            warnings = Warn.warnings(member_id)
             return await ctx.send(f'The specified member has {str(warnings)} warning(s).')
         except ValueError:
             return await ctx.send("Please mention a member to show their warnings")
@@ -233,3 +232,15 @@ def setup_admin_interface(bot):
         await leader_role.delete()
         User.delete_team(team_name)
         await ctx.send(f'Deleted the `{team_name}` team.')
+
+    @bot.command(hidden=True, brief="Removes a warning from a member")
+    async def unwarn(ctx, user):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+        try:
+            member_id = int(user[3:-1])
+            Warn.unwarn(member_id)
+            warnings = Warn.warnings(member_id)
+            return await ctx.send(f'The specified member now has {str(warnings)} warning(s).')
+        except ValueError:
+            return await ctx.send("Please mention a member to show their warnings")
