@@ -39,6 +39,10 @@ utc = pytz.UTC
 # Setup function
 def setup_member_interface(bot):
     # -------------------------------- Extra admin commands --------------------------------
+
+    # Used to manually start the leader voting for a team. The leader voting process isn't automatically started when
+    # the team is manually created by create_new_team command, and it may need to be manually restarted when the project
+    # leader leaves the project through remove_me command or leaves the server
     @bot.command(hidden=True)
     async def start_leader_voting(ctx, team_name=''):
         guild = ctx.guild
@@ -64,6 +68,9 @@ def setup_member_interface(bot):
         await vote_for_leader(role, guild, overwrites, category)
         await ctx.send(f'The leader voting process has been started for `{team_name}`')
 
+    # Used to manually create teams. This could be used for the teams that existed before the bot was created.
+    # NOTE: when using this with existing teams, the category name, the role name, the repo name and the team name must
+    # be the same.
     @bot.command(hidden=True)
     async def create_new_team(ctx, team_name):
         if len(team_name) >= 45:
@@ -73,6 +80,8 @@ def setup_member_interface(bot):
         await create_team(ctx.guild, team_name)
         await ctx.send(f'Created new team `{team_name}`')
 
+    # Used to check each member's activity by checking the difference between the current time and the
+    # start of the week of his latest contribution (Sunday). If the difference is more than 13 days the user gets warned
     @bot.command(hidden=True, brief="Checks the members contribution activities")
     async def activity_check(ctx):
         if not ctx.author.guild_permissions.administrator:
@@ -195,6 +204,7 @@ def setup_member_interface(bot):
         await ctx.send(embed=embed)
 
     # -------------------------------- Supporting functions --------------------------------
+    # A mathematical function that is used to change seconds into hours, minutes, seconds format
     async def format_seconds(seconds):
         hours_decimal = seconds / 3600
         hours, minutes_in_hours = divmod(hours_decimal, 1)
@@ -203,6 +213,9 @@ def setup_member_interface(bot):
         seconds = seconds_in_minutes * 60
         return hours, minutes, seconds
 
+    # Get the time to wait for either the voting process or the GitHub-usernames-gathering process by adding the
+    # appropriate waiting time config value to the message edit/creation date and subtracting the current
+    # time from it. This is also used whenever the bot boots up to check how many seconds are remaining for each process
     async def get_time_to_wait(message, voting: bool):
         # Set the message creation time to the creation date if it hasn't been edited, otherwise set it to the edit date
         if not message.edited_at:
@@ -225,7 +238,8 @@ def setup_member_interface(bot):
     async def continue_githubs(gen_name, participants_message):
         days, seconds = await get_time_to_wait(participants_message, voting=False)
         time_to_wait = days * 24 * 60 * 60 + seconds
-        hours_show, minutes_show, seconds_show = await format_seconds(seconds)
+        hours_show, minutes_show, seconds_show = await format_seconds(seconds)  # The variables that are shown in the
+        # message
         overview_channel_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_channel_id)
         await overview_channel.send(f'Voters for `{gen_name}` have `{str(days)}` day(s), `{str(round(hours_show))}` '
@@ -420,6 +434,7 @@ def setup_member_interface(bot):
         await vote_for_leader(role, guild, overwrites, category)
         return text_channel
 
+    # To add users to a GitHub team
     async def add_membership(member, gen_name, github_client, team):
         github_user = User.get(member.id, gen_name)
         try:
@@ -435,7 +450,6 @@ def setup_member_interface(bot):
                 if team.name != gen_name:
                     continue
                 # If there is a team with the same name
-                print("Found an existing team!")
                 return team
 
         team = org.create_team(gen_name, privacy="closed")
@@ -455,7 +469,6 @@ def setup_member_interface(bot):
                 if repo.name != gen_name:
                     continue
                 # If a repository already exists for this idea
-                print("Found an existing repository!")
                 team.add_to_repos(repo)
                 return repo
 
@@ -463,6 +476,7 @@ def setup_member_interface(bot):
         team.add_to_repos(repo)
         return repo
 
+    # The team creation process
     async def create_team(guild, gen_name):
 
         text_channel = await create_category_channels(guild, gen_name)
@@ -604,6 +618,7 @@ def setup_member_interface(bot):
                 continue
             await warn_member(voter, "Failing to reply with their GitHub username after voting for an idea.")
 
+    # Used after an idea gets enough votes
     async def get_all_githubs(participants, gen_name, message, waiting_time):
         github_required_percentage = float(Config.get('github-required-percentage'))
         guild = message.guild

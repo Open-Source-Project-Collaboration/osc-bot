@@ -2,6 +2,8 @@ from db import Base, session, engine
 from sqlalchemy import Column, String, Integer
 
 
+# The user model: a user can have multiple GitHub usernames for different teams but one GitHub username for the same
+# team
 class User(Base):
     __tablename__ = 'users'
 
