@@ -33,7 +33,6 @@ online_since_date = None
 utc = pytz.UTC
 
 
-# TODO: Do not restart trials when bot goes down
 # TODO: Delete embed messages in Dms when sending a new one
 # TODO: Command cool-down
 
@@ -128,15 +127,30 @@ def setup_member_interface(bot):
 
     @bot.command(brief="Shows information about the voting process")
     async def voting_info(ctx):
-        time_to_wait = Config.get('time-to-wait')
+        time_to_wait = int(Config.get('time-to-wait'))
         req_votes = Config.get('required-votes')
-        github_sleep_time = Config.get('github-sleep-time')
+        github_sleep_time = int(Config.get('github-sleep-time'))
         github_required_percentage = Config.get('github-required-percentage')
-        await ctx.send(f'The current voting period is {time_to_wait} seconds.\n' +
-                       f'The required votes for each idea are {req_votes} votes.\n' +
-                       f'{float(github_required_percentage) * 100}% of the voters must reply to the bot message ' +
-                       "sent to them with their github username to approve the idea.\n" +
-                       f'The voters are given {github_sleep_time} seconds to reply with their Github usernames.')
+
+        voting_days = str(time_to_wait // (24 * 60 * 60))
+        voting_hours, voting_minutes, voting_seconds = await format_seconds(time_to_wait)
+        voting_hours, voting_minutes, voting_seconds = \
+            str(round(voting_hours)), str(round(voting_minutes)), str(round(voting_seconds))
+
+        github_days = str(github_sleep_time // (24 * 60 * 60))
+        github_hours, github_minutes, github_seconds = await format_seconds(github_sleep_time)
+        github_hours, github_minutes, github_seconds = \
+            str(round(github_hours)), str(round(github_minutes)), str(round(github_seconds))
+
+        await ctx.send(f'The current voting period is `{voting_days}` day(s) (`{voting_hours}` hour(s), '
+                       f'`{voting_minutes}` '
+                       f'minute(s) and `{voting_seconds}` second(s)).\n' +
+                       f'The required votes for each idea are `{req_votes}` votes.\n' +
+                       f'`{float(github_required_percentage) * 100}`% of the voters must reply to the bot DM ' +
+                       "with their github username to approve the idea.\n" +
+                       f'The voters are given `{github_days}` day(s) (`{github_hours}` hour(s), '
+                       f'`{github_minutes}` minute(s) and `{github_seconds}` second(s)) '
+                       f'to reply with their Github usernames.')
 
     @bot.command(brief="Shows all teams members and their GitHub usernames")
     async def show_teams(ctx, team_name=''):
@@ -178,6 +192,14 @@ def setup_member_interface(bot):
         await ctx.send(embed=embed)
 
     # -------------------------------- Supporting functions --------------------------------
+    async def format_seconds(seconds):
+        hours_decimal = seconds / 3600
+        hours, minutes_in_hours = divmod(hours_decimal, 1)
+        minutes_decimal = minutes_in_hours * 60
+        minutes, seconds_in_minutes = divmod(minutes_decimal, 1)
+        seconds = seconds_in_minutes * 60
+        return hours, minutes, seconds
+
     async def get_time_to_wait(message, voting: bool):
         # Set the message creation time to the creation date if it hasn't been edited, otherwise set it to the edit date
         if not message.edited_at:
@@ -200,10 +222,12 @@ def setup_member_interface(bot):
     async def continue_githubs(gen_name, participants_message):
         days, seconds = await get_time_to_wait(participants_message, voting=False)
         time_to_wait = days * 24 * 60 * 60 + seconds
+        hours_show, minutes_show, seconds_show = await format_seconds(seconds)
         overview_channel_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_channel_id)
-        await overview_channel.send(f'Voters for {gen_name} have {str(days)} day(s) ' +
-                                    f'and {str(seconds)} second(s) to send their GitHub accounts')
+        await overview_channel.send(f'Voters for `{gen_name}` have `{str(days)}` day(s), `{str(round(hours_show))}` '
+                                    f'hour(s), `{str(round(minutes_show))}` minutes and `{str(round(seconds_show))}` '
+                                    f'seconds to send their GitHub usernames')
         users = participants_message.mentions
         participants_list = []
         for user in users:
@@ -619,9 +643,12 @@ def setup_member_interface(bot):
             # Wait for 14 days
             msg = await idea_channel.fetch_message(message_id)
             days, seconds = await get_time_to_wait(msg, voting=True)
+            hours_show, minutes_show, seconds_show = await format_seconds(seconds)
             time_to_wait = days * 24 * 60 * 60 + seconds
-            await overview_chan.send(f'{str(days)} day(s) and {str(seconds)} second(s) ' +
-                                     f'remaining till voting ends on the {gen_name} idea.')
+            await overview_chan.send(f'`{str(days)}` day(s), `{str(round(hours_show))}` hour(s), '
+                                     f'`{str(round(minutes_show))}` minute(s) '
+                                     f'and `{str(round(seconds_show))}` second(s) are '
+                                     f'remaining till voting ends on the `{gen_name}` idea.')
             await asyncio.sleep(time_to_wait)
             msg = await idea_channel.fetch_message(message_id)
             voters_number = 0
