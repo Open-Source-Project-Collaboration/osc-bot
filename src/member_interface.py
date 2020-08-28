@@ -562,10 +562,23 @@ def setup_member_interface(bot):
         embed = discord.Embed(title=gen_name)
         embed.add_field(name="Idea", value=gen_name)
         embed.add_field(name="Guild ID", value=voter.guild.id)
-        await voter.send('Hello!\nWe noticed that you have voted for the following idea:\n' +
-                         'Please send me your GitHub username so I can add you to the team.\n' +
-                         "If you receive no reply, then the bot is down or the idea team has already been created.\n" +
-                         "If you accidentally send someone else's username, simply re-send your username", embed=embed)
+        message = await voter.send('Hello!\nWe noticed that you have voted for the following idea:\n' +
+                                   'Please send me your GitHub username so I can add you to the team.\n' +
+                                   "If you receive no reply, then the bot is down or the idea team "
+                                   "has already been created.\n" +
+                                   "If you accidentally send someone else's username, simply re-send your username",
+                                   embed=embed)
+        dm_channel = message.channel
+        messages = await dm_channel.history().flatten()
+        # Clean up Bot messages sent before it was rebooted
+        for message in messages:
+            if not message.embeds:
+                # Looks for a message containing an embed
+                continue
+            if utc.localize(message.created_at) < online_since_date and message.author.bot:
+                # If it was a message sent before the bot rebooted, delete it
+                await message.delete()
+                continue
 
     # Notifies the participants about the idea processing results
     async def notify_voters(participants_message, gen_name):
@@ -662,6 +675,7 @@ def setup_member_interface(bot):
                     voters_number = len(users)
                     for user in users:
                         if user == msg.mentions[0]:  # If the user is the owner of the idea, continue
+                            voters_number -= 1
                             continue
                         participants += "\n" + user.mention
                         participants_list.append(user)
@@ -742,28 +756,6 @@ def setup_member_interface(bot):
             else:  # If it is another emoji, remove the reaction
                 await message.remove_reaction(reaction.emoji, reaction.member)
 
-    # Watch for reaction remove
-    @bot.event
-    async def on_reaction_remove(reaction, member):
-        message = reaction.message
-        idea_id = int(Config.get('idea-channel'))
-        if message.channel.id == idea_id and message.author.bot and reaction.emoji == THUMBS_UP_EMOJI:
-            if member == message.mentions[0]:  # If the reaction remover is the owner of the idea
-                users = await reaction.users().flatten()
-                replacer = "No owner "
-                if len(users) > 1:  # There are voters other than the bot
-                    bot_replace = False
-                else:
-                    bot_replace = True
-
-                for user in users:  # Replace with bot if there aren't votes, otherwise replace with user
-                    if user.bot == bot_replace:
-                        replacer = user.mention
-
-                new_content = message.content.replace(message.mentions[0].mention, replacer)
-                await message.edit(content=new_content)
-                # Replace the owner with the voter
-
     # Watch messages addition to check for sent GitHub accounts
     @bot.event
     async def on_message(message):
@@ -785,13 +777,6 @@ def setup_member_interface(bot):
 
         await channel.send("Hey there, please wait...")
         for message in messages:
-            if not message.embeds:
-                # Looks for a message containing an embed
-                continue
-            if utc.localize(message.created_at) < online_since_date and message.author.bot:
-                # If it was a message sent before the bot rebooted, delete it
-                await message.delete()
-                continue
 
             embed = message.embeds[0]
             gen_name = embed.title  # Gets the idea name from the message sent to user
