@@ -32,6 +32,9 @@ org_name = environ.get('ORG_NAME')
 online_since_date = None
 utc = pytz.UTC
 
+
+# TODO: Do not restart trials when bot goes down
+# TODO: Delete embed messages in Dms when sending a new one
 # TODO: Command cool-down
 
 
@@ -175,24 +178,28 @@ def setup_member_interface(bot):
         await ctx.send(embed=embed)
 
     # -------------------------------- Supporting functions --------------------------------
-    async def get_time_to_wait(message):
-        message_creation_time: datetime = utc.localize(message.created_at)
-        time_to_wait = int(Config.get('time-to-wait'))
+    async def get_time_to_wait(message, voting: bool):
+        # Set the message creation time to the creation date if it hasn't been edited, otherwise set it to the edit date
+        if not message.edited_at:
+            message_creation_time: datetime = utc.localize(message.created_at)
+        else:
+            message_creation_time: datetime = utc.localize(message.edited_at)
+        time_to_wait = int(Config.get('time-to-wait')) if voting else int(Config.get('github-sleep-time'))
         time_to_wait_addition = timedelta(seconds=time_to_wait)  # Seconds in timedelta to be able to add it to the
         # message creation date
         idea_end_date = message_creation_time + time_to_wait_addition  # The date at which the idea will end
         final_time = idea_end_date - datetime.now(tz=timezone.utc)
-        return final_time.days, final_time.seconds
+        days = final_time.days
+        seconds = final_time.seconds
+        if days < 0:
+            days = 0
+            seconds = 0
+        return days, seconds
 
     # Continue asking for Github usernames if the bot goes down
     async def continue_githubs(gen_name, participants_message):
-        days, seconds = await get_time_to_wait(participants_message)
-        if days < 0:  # If the time has passed
-            days = 0
-            seconds = 0
-            time_to_wait = 0
-        else:
-            time_to_wait = days * 24 * 60 * 60 + seconds
+        days, seconds = await get_time_to_wait(participants_message, voting=False)
+        time_to_wait = days * 24 * 60 * 60 + seconds
         overview_channel_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_channel_id)
         await overview_channel.send(f'Voters for {gen_name} have {str(days)} day(s) ' +
@@ -206,18 +213,9 @@ def setup_member_interface(bot):
 
     # Continue voting if the bot goes down
     async def continue_voting(message, gen_name):
-        days, seconds = await get_time_to_wait(message)
-        if days < 0:  # If the time has passed
-            days = 0
-            seconds = 0
-            time_to_wait = 0
-        else:
-            time_to_wait = days * 24 * 60 * 60 + seconds
-        overview_channel_id = int(Config.get('overview-channel'))
-        overview_channel = bot.get_channel(overview_channel_id)
-        await overview_channel.send(f'{str(days)} day(s) and {str(seconds)} second(s) ' +
-                                    f'remaining till voting ends on the {gen_name} idea.')
-        await wait_for_votes(message.id, gen_name, time_to_wait)
+        trials_field = discord.utils.get(message.embeds[0].fields, name="Trials")
+        trials = int(trials_field.value)
+        await wait_for_votes(message.id, gen_name, trials)
 
     # Checks if an idea team is already created
     async def check_if_finished(gen_name):
@@ -524,13 +522,13 @@ def setup_member_interface(bot):
             embed = discord.Embed(title=gen_name, color=0x00ff00)
             embed.add_field(name="Idea Explanation", value=idea_explanation)
             embed.add_field(name='Programming Language', value=lang, inline=False)
+            embed.insert_field_at(2, name="Trials", value="0")
             msg = await chan.send(f'{ctx.author.mention} proposed an idea, please vote using a thumbs up reaction:',
                                   embed=embed)
             await msg.add_reaction('👍')
 
             # Watch it
-            time_to_wait = int(Config.get('time-to-wait'))
-            await wait_for_votes(msg.id, gen_name, time_to_wait)
+            await wait_for_votes(msg.id, gen_name, 0)
         except discord.HTTPException:
             await overview_channel.send(ctx.author.mention +
                                         ", an error has occurred while processing one of your ideas")
@@ -606,7 +604,7 @@ def setup_member_interface(bot):
         await notify_voters(message, gen_name)
 
     # Watches a vote for 14 days
-    async def wait_for_votes(message_id, gen_name, waiting_time):
+    async def wait_for_votes(message_id, gen_name, trials):
 
         # Get channels
         overview_chan = Config.get('overview-channel')
@@ -617,9 +615,14 @@ def setup_member_interface(bot):
         msg = None
 
         # Trial count
-        for _ in range(4):
+        while trials <= 3:
             # Wait for 14 days
-            await asyncio.sleep(waiting_time)
+            msg = await idea_channel.fetch_message(message_id)
+            days, seconds = await get_time_to_wait(msg, voting=True)
+            time_to_wait = days * 24 * 60 * 60 + seconds
+            await overview_chan.send(f'{str(days)} day(s) and {str(seconds)} second(s) ' +
+                                     f'remaining till voting ends on the {gen_name} idea.')
+            await asyncio.sleep(time_to_wait)
             msg = await idea_channel.fetch_message(message_id)
             voters_number = 0
             participants = msg.mentions[0].mention  # Add the idea owner as an initial participant
@@ -654,6 +657,9 @@ def setup_member_interface(bot):
             await overview_chan.send(
                 f'Votes for `{gen_name}` were not enough, waiting for more votes...'
             )
+            embed = msg.embeds[0].set_field_at(2, name="Trials", value=str(trials + 1))
+            await msg.edit(embed=embed)
+            trials += 1
             continue  # Wait 14 days more
 
         # Trials end here
