@@ -33,7 +33,6 @@ online_since_date = None
 utc = pytz.UTC
 
 
-# TODO: Delete embed messages in Dms when sending a new one
 # TODO: Command cool-down
 
 
@@ -80,8 +79,10 @@ def setup_member_interface(bot):
             await ctx.message.delete()
             return await ctx.send(ctx.author.mention + ", you can't do that", delete_after=3.0)
 
-        if datetime.now(tz=timezone.utc).strftime("%A") != "Thursday":  # If it isn't Saturday TODO: change
+        if datetime.now(tz=timezone.utc).strftime("%A") != "Friday":  # If it isn't Saturday TODO: change
             return await ctx.send(ctx.author.mention + ", you can only do activity checks on Saturdays (UTC)")
+
+        await ctx.send("Please wait...")
 
         g = Github(github_token)
         org = g.get_organization(org_name)
@@ -115,6 +116,8 @@ def setup_member_interface(bot):
                 await warn_member(guild_user, f'Not contributing in {gen_name} for more than two weeks')
 
             await bot_channel.send(f'Name: {guild_user.mention} | Team: **{gen_name}** | Status: **{status}**')
+
+        await ctx.send("Done.")
 
     # -------------------------------- Getting info --------------------------------
     # Show channels
@@ -498,6 +501,7 @@ def setup_member_interface(bot):
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
+    @discord.ext.commands.cooldown(1, 300, discord.ext.commands.BucketType.user)
     async def new_idea(ctx, lang='', idea_name='', idea_explanation='N/A'):
 
         # Check fields
@@ -572,13 +576,9 @@ def setup_member_interface(bot):
         messages = await dm_channel.history().flatten()
         # Clean up Bot messages sent before it was rebooted
         for message in messages:
-            if not message.embeds:
-                # Looks for a message containing an embed
-                continue
-            if utc.localize(message.created_at) < online_since_date and message.author.bot:
+            if utc.localize(message.created_at) < online_since_date and message.author.bot and message.embeds:
                 # If it was a message sent before the bot rebooted, delete it
                 await message.delete()
-                continue
 
     # Notifies the participants about the idea processing results
     async def notify_voters(participants_message, gen_name):
@@ -691,8 +691,8 @@ def setup_member_interface(bot):
                     f'''Voting for {gen_name} has ended, **approved**!\n'''
                     f'''Participants:\n{participants}\nPlease check your messages
                     ''', embed=embed)
-                time_to_wait = int(Config.get('time-to-wait'))
-                return await get_all_githubs(participants_list, gen_name, participants_message, time_to_wait)
+                github_wait = int(Config.get('github-sleep-time'))
+                return await get_all_githubs(participants_list, gen_name, participants_message, github_wait)
 
             # If the votes aren't enough
             await overview_chan.send(
@@ -777,7 +777,8 @@ def setup_member_interface(bot):
 
         await channel.send("Hey there, please wait...")
         for message in messages:
-
+            if not message.embeds:
+                continue
             embed = message.embeds[0]
             gen_name = embed.title  # Gets the idea name from the message sent to user
 
@@ -812,3 +813,11 @@ def setup_member_interface(bot):
             return await channel.send("Done")
         else:
             return await channel.send("Nothing to do here :)")
+
+    # Command error handling as cool-down
+    @bot.event
+    async def on_command_error(ctx, error):
+        if isinstance(error, discord.ext.commands.CommandOnCooldown):
+            await ctx.send(f'You can only use this command again after `{str(round(error.retry_after))}` seconds.')
+        elif isinstance(error, discord.ext.commands.CommandNotFound):
+            await ctx.send(f'Unknown command: `{ctx.message.content}`')
