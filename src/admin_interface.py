@@ -181,7 +181,11 @@ def setup_admin_interface(bot):
             voters = await thumbs_up_reaction.users().flatten()
             voters_number = len(voters)
             if voters_number >= max_votes:
-                leader = message.mentions[0]
+                leader_to_add = message.mentions[0]
+                team_role = discord.utils.get(leader_to_add.roles, name=gen_name)
+                if not team_role:
+                    continue
+                leader = leader_to_add
                 max_votes = voters_number
 
         if not leader:
