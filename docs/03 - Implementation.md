@@ -10,15 +10,12 @@ ran directly. This ensures consistency across the project, by restricting what
 other files can do when ran directly.
 
 
-## Configuration
+## The Database
 
 Hence we prefer hosting CrunchBang on Heroku, we opted to use MySQL with
-SQLAlchemy python package. This is not because we store our members' data,
-but rather for pure configuration purposes.
+SQLAlchemy python package.
 
-Current config data we hold are:
-
-- channel IDs
+Please check out [the tables](10%20-%20Tables.md) for information about the data we store.
 
 The SQLAlchemy uses PostgreSQL on production whilst using sqlite on development
 environments. This can be set in the `.env` file by setting `ENV=dev` or
