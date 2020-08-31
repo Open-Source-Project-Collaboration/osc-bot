@@ -13,7 +13,7 @@ else:
     name = environ.get('DB_NAME')
     pswd = environ.get('DB_PASS')
     port = environ.get('PORT')
-    engine = create_engine(f'postgresql://{name}:{pswd}@localhost:{port}/{dbdb}')
+    engine = create_engine(f'postgresql://{name}:{pswd}@0.0.0.0:{port}/{dbdb}')
 
 # Create a session
 session = sessionmaker(bind=engine)()
