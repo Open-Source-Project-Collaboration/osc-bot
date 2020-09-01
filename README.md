@@ -1,6 +1,7 @@
 # OSC-Bot
 
-The best bot ever!
+A bot that automates the process of suggesting project ideas, voting on them and creating GitHub teams and repos.
+http://discord.link/opensourcecollab
 
 
 ## Running it
