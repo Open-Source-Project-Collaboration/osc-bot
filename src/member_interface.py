@@ -836,3 +836,5 @@ def setup_member_interface(bot):
             await ctx.send(f'You can only use this command again after `{str(round(error.retry_after))}` seconds.')
         elif isinstance(error, discord.ext.commands.CommandNotFound):
             await ctx.send(f'Unknown command: `{ctx.message.content}`')
+        else:
+            raise error
