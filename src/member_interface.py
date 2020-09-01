@@ -370,9 +370,11 @@ def setup_member_interface(bot):
         if not role:
             return
         await ctx.author.remove_roles(role)
+        await ctx.send(ctx.author.mention + ", I have removed your role. Please wait...")
         leader_role = discord.utils.get(ctx.author.roles, name='pl-' + team_name)
         if leader_role:
             await ctx.author.remove_roles(leader_role)
+            await ctx.send(ctx.author.mention + ", I have removed your leadership role")
 
         g = Github(github_token)
         org = g.get_organization(org_name)
@@ -380,6 +382,8 @@ def setup_member_interface(bot):
         if not team:
             return await ctx.send(ctx.author.mention + ", couldn't find the team on GitHub")
         user = User.get(ctx.author.id, team_name)
+        if not user:
+            return await ctx.send(ctx.author.mention + ", couldn't find you in the database.")
         github_username = user.user_github
         github_user = g.get_user(github_username)
         team.remove_membership(github_user)
