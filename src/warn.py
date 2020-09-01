@@ -1,11 +1,11 @@
 from db import Base, session, engine
-from sqlalchemy import Column, Integer
+from sqlalchemy import Column, Integer, Numeric
 
 
 class Warn(Base):
     __tablename__ = 'warns'
 
-    user_id = Column(Integer, primary_key=True)
+    user_id = Column(Numeric, primary_key=True)
     warns = Column(Integer)
 
     def __init__(self, user_id, warns):

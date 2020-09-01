@@ -9,10 +9,8 @@ env = environ.get('ENV') or 'dev'
 if env == 'dev':
     engine = create_engine('sqlite:///db.sqlite3')
 else:
-    dbdb = environ.get('DB_DB')
-    name = environ.get('DB_NAME')
-    pswd = environ.get('DB_PASS')
-    engine = create_engine(f'postgresql://{name}:{pswd}@localhost/{dbdb}')
+    database_url = environ.get('DATABASE_URL')
+    engine = create_engine(database_url)
 
 # Create a session
 session = sessionmaker(bind=engine)()
