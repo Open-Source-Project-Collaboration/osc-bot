@@ -88,7 +88,7 @@ def setup_member_interface(bot):
             await ctx.message.delete()
             return await ctx.send(ctx.author.mention + ", you can't do that", delete_after=3.0)
 
-        if datetime.now(tz=timezone.utc).strftime("%A") != "Friday":  # If it isn't Saturday TODO: change
+        if datetime.now(tz=timezone.utc).strftime("%A") != "Saturday":  # If it isn't Saturday
             return await ctx.send(ctx.author.mention + ", you can only do activity checks on Saturdays (UTC)")
 
         await ctx.send("Please wait...")
