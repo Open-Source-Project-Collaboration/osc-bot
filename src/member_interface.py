@@ -441,6 +441,8 @@ def setup_member_interface(bot):
     # To add users to a GitHub team
     async def add_membership(member, gen_name, github_client, team):
         github_user = User.get(member.id, gen_name)
+        if not github_user:
+            return
         try:
             github_user = github_client.get_user(github_user.user_github)
             team.add_membership(github_user, role="maintainer")
@@ -489,7 +491,6 @@ def setup_member_interface(bot):
 
         g = Github(github_token)
         org = g.get_organization(org_name)
-
         team = await create_org_team(gen_name, team_members, g, org)
         await text_channel.send(f'https://github.com/orgs/{org_name}/teams/{team.name}')
 
