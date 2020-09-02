@@ -447,7 +447,7 @@ def setup_member_interface(bot):
             github_user = github_client.get_user(github_user.user_github)
             team.add_membership(github_user, role="maintainer")
         except UnknownObjectException:
-            member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
+            await member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
 
     async def create_org_team(gen_name, team_members, github_client, org):
         teams = org.get_teams()
