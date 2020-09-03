@@ -37,4 +37,8 @@ Config.set_init('github-sleep-time', '1209600')
 Config.set_init('github-required-percentage', '0.7')
 
 # Run bot
-bot.run(environ.get('DISCORD_TOKEN'))
+env = environ.get('ENV')
+if env == 'dev':
+    bot.run(environ.get('DISCORD_DEV_TOKEN'))
+else:
+    bot.run(environ.get('DISCORD_TOKEN'))
