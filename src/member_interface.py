@@ -37,7 +37,7 @@ utc = pytz.UTC
 
 
 # Setup function
-def setup_member_interface(bot):
+def setup_member_interface(bot: discord.ext.commands.Bot):
     # -------------------------------- Extra admin commands --------------------------------
 
     # Used to manually start the leader voting for a team. The leader voting process isn't automatically started when
@@ -318,6 +318,36 @@ def setup_member_interface(bot):
                     print(f'Found an unfinished process in {channel_name}!')
                     await message.add_reaction(RESTART_EMOJI)
 
+    async def get_idea_inputs(ctx, required):
+        await ctx.send(ctx.author.mention + f", please type `p: [{required}]` without '[', ']'")
+
+        def check(m: discord.Message):
+            return 'p:' in m.content.lower() and m.channel == ctx.channel and m.author == ctx.author
+
+        try:
+            message = await bot.wait_for('message', timeout=75.0, check=check)
+            content = message.content[2:]
+            name = content.strip()
+            return name
+        except asyncio.TimeoutError:
+            await ctx.send(ctx.author.mention + " your idea has been cancelled for not responding.")
+            return None
+
+    async def show_idea_preview(ctx, embed):
+        def check(m):
+            return m.channel == ctx.channel and m.content.lower().replace(" ", "") == 'p:yes' and m.author == ctx.author
+
+        preview_message = await ctx.send(ctx.author.mention +
+                                         ", this is how your idea will look in the ideas channel, type `p: yes` to"
+                                         " confirm.", embed=embed)
+        try:
+            await bot.wait_for('message', timeout=75.0, check=check)
+            return preview_message
+        except asyncio.TimeoutError:
+            await preview_message.delete()
+            await ctx.send(ctx.author.mention + " your idea has been cancelled for not responding to the bot")
+            return None
+
     # -------------------------------- Team management --------------------------------
     async def check_team_existence(ctx, team_name, roles):
         author_mention = ctx.author.mention
@@ -521,16 +551,7 @@ def setup_member_interface(bot):
     # Proposes a new idea to idea channel
     @bot.command(brief="Adds a new idea to the ideas channel")
     @discord.ext.commands.cooldown(1, 300, discord.ext.commands.BucketType.user)
-    async def new_idea(ctx, lang='', idea_name='', idea_explanation='N/A'):
-
-        # Check fields
-        if not lang or not idea_name:
-            return await ctx.send(f'{ctx.author.mention} fields are invalid! ' +
-                                  'Please use "language" "idea name" "idea explanations" as arguments')
-
-        if len(idea_name) > 95:
-            return await ctx.send(ctx.author.mention + ", the idea name length must be less that 95 characters long")
-
+    async def new_idea(ctx: discord.ext.commands.Context):
         # Get channel
         chanid = Config.get('idea-channel')
         chanid = int(chanid)
@@ -540,14 +561,19 @@ def setup_member_interface(bot):
         if not chanid:
             return await ctx.send('Idea channel is not available!')
 
-        # Generate a name from idea
+        # Get the name of the idea
+        idea_name = await get_idea_inputs(ctx, "the proposed idea name")
+        if not idea_name:
+            return
+
+        if len(idea_name) > 95:
+            return await ctx.send(ctx.author.mention + ", the idea name length must be less that 95 characters long")
+
+        # Format the name of the idea
         gen_name = '-'.join(idea_name.split(' ')).lower()
-        for item in ['`', '"', '*', '_', '@', '#']:  # Filter out unwanted characters
-            lang = lang.replace(item, '')
-            idea_explanation = idea_explanation.replace(item, '')
-            gen_name = gen_name.replace(item, '')
         gen_name = re.sub("([^a-z-])+", '', gen_name)  # Remove anything that is not a letter
         gen_name = re.sub("(-)+", '-', gen_name)  # Replace multiple dashes with a single one
+        gen_name = gen_name[:-1] if gen_name[-1] == "-" else gen_name
 
         # Check if there is an idea team with the current idea
         role = discord.utils.get(ctx.guild.roles, name=gen_name)
@@ -560,6 +586,22 @@ def setup_member_interface(bot):
             if message.embeds and message.embeds[0].title == gen_name:
                 return await ctx.send(ctx.author.mention + ", this idea name already exists.")
 
+        # Get the idea explanation
+        idea_explanation = await get_idea_inputs(ctx, "the idea explanation")
+        if not idea_explanation:
+            return
+
+        # Get the idea language
+        lang = await get_idea_inputs(ctx, "the programming language of idea")
+        if not lang:
+            return
+
+        # Generate a name from idea
+        for item in ['`', '"', '*', '_', '@', '#']:  # Filter out unwanted characters
+            lang = lang.replace(item, '')
+            idea_explanation = idea_explanation.replace(item, '')
+            gen_name = gen_name.replace(item, '')
+
         # Check if the same name exists in the database and if so delete (there would be no current idea with this
         # name anyway, it would be an outdated finished idea)
         User.delete_team(gen_name)
@@ -569,6 +611,11 @@ def setup_member_interface(bot):
             embed = discord.Embed(title=gen_name, color=0x00ff00)
             embed.add_field(name="Idea Explanation", value=idea_explanation)
             embed.add_field(name='Programming Language', value=lang, inline=False)
+            preview_message = await show_idea_preview(ctx, embed)
+            if not preview_message:
+                return
+            await preview_message.delete()
+
             embed.insert_field_at(2, name="Trials", value="0")
             msg = await chan.send(f'{ctx.author.mention} proposed an idea, please vote using a thumbs up reaction:',
                                   embed=embed)
