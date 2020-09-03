@@ -319,7 +319,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         await ctx.send(ctx.author.mention + f", please type `p: [{required}]` without '[', ']'")
 
         def check(m: discord.Message):
-            return 'p:' in m.content.lower() and m.channel == ctx.channel and m.author == ctx.author
+            return 'p:' in m.content.lower() and m.channel == ctx.channel and m.author == ctx.author \
+                   and m.content.lower().strip() != 'p:'
 
         try:
             message = await bot.wait_for('message', timeout=75.0, check=check)
@@ -565,7 +566,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             return
 
         if len(idea_name) > 95:
-            return await ctx.send(ctx.author.mention + ", the idea name length must be less that 95 characters long")
+            await ctx.send(ctx.author.mention + ", the idea name length must be less that 95 characters long")
+            return await new_idea(ctx)
 
         # Format the name of the idea
         gen_name = '-'.join(idea_name.split(' ')).lower()
@@ -576,13 +578,15 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         # Check if there is an idea team with the current idea
         role = discord.utils.get(ctx.guild.roles, name=gen_name)
         if role:
-            return await ctx.send(ctx.author.mention + ", this idea name already exists.")
+            await ctx.send(ctx.author.mention + ", this idea name already exists.")
+            return await new_idea(ctx)
 
         # Check if there is currently a proposed idea with the same title
         messages = await chan.history().flatten()
         for message in messages:
             if message.embeds and message.embeds[0].title == gen_name:
-                return await ctx.send(ctx.author.mention + ", this idea name already exists.")
+                await ctx.send(ctx.author.mention + ", this idea name already exists.")
+                return await new_idea(ctx)
 
         # Get the idea explanation
         idea_explanation = await get_idea_inputs(ctx, "the idea explanation")
@@ -714,6 +718,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         overview_chan = bot.get_channel(overview_chan)
         idea_id = int(Config.get('idea-channel'))
         idea_channel = bot.get_channel(idea_id)
+        guild = idea_channel.guild
         msg = None
 
         # Trial count
@@ -730,20 +735,32 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await asyncio.sleep(time_to_wait)
             msg = await idea_channel.fetch_message(message_id)
             voters_number = 0
-            participants = msg.mentions[0].mention  # Add the idea owner as an initial participant
-            participants_list = [msg.mentions[0]]  # A list to contain Members
+
+            if msg.mentions and guild.get_member(msg.mentions[0].id):
+                owner = msg.mentions[0]
+                participants = owner.mention  # Add the idea owner as an initial participant
+                participants_list = [owner]  # A list to contain Members
+
+            else:
+                owner = None
+                participants = ''
+                participants_list = []
 
             # Get the votes
             for reaction in msg.reactions:
-                if reaction.emoji == THUMBS_UP_EMOJI:
-                    users = await reaction.users().flatten()  # Find the users of this reaction
-                    voters_number = len(users)
-                    for user in users:
-                        if user == msg.mentions[0]:  # If the user is the owner of the idea, continue
-                            voters_number -= 1
-                            continue
-                        participants += "\n" + user.mention
-                        participants_list.append(user)
+                if reaction.emoji != THUMBS_UP_EMOJI:
+                    continue
+                users = await reaction.users().flatten()  # Find the users of this reaction
+                voters_number = len(users)
+                for user in users:
+                    if user == owner:  # If the user is the owner of the idea, continue
+                        voters_number -= 1
+                        continue
+                    if isinstance(user, discord.User):  # If the user has left the server, continue
+                        voters_number -= 1
+                        continue
+                    participants += "\n" + user.mention
+                    participants_list.append(user)
 
             req_votes = int(Config.get('required-votes'))
             # Check votes (-1 the bot)
