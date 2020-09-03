@@ -33,9 +33,6 @@ online_since_date = None
 utc = pytz.UTC
 
 
-# TODO: Command cool-down
-
-
 # Setup function
 def setup_member_interface(bot: discord.ext.commands.Bot):
     # -------------------------------- Extra admin commands --------------------------------
@@ -372,7 +369,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         if github_username == "":
             return await ctx.send(ctx.author.mention + ", please provide your GitHub username as a first argument.")
         if team_name == "":
-            return await ctx.send(ctx.author.mention + ", please provide the team name as a second argument.")
+            return await ctx.send(ctx.author.mention + ", please provide the team name as a second argument "
+                                                       "and your GitHub username as a first argument.")
         if not await check_team_existence(ctx, team_name, ctx.guild.roles):
             return
         if not await check_submitted(ctx.author, team_name, github_username, ctx.channel):
