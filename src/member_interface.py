@@ -511,6 +511,17 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         team.add_to_repos(repo)
         return repo
 
+    async def notify_about_team(repo, team, text_channel: discord.TextChannel):
+        running_channel_id = int(Config.get('running-channel'))
+        running_channel = bot.get_channel(running_channel_id)
+        embed = discord.Embed(title=team.name)
+        await text_channel.send(f'https://github.com/orgs/{org_name}/teams/{team.name}')
+        await text_channel.send(f'https://github.com/{org_name}/{repo.name}')
+        await running_channel.send(f'@everyone a new team has been created!\n'
+                                   f'https://github.com/{org_name}/{repo.name}\n'
+                                   f'Please use `#!add_me "your Github username" "{team.name}"` to be added.`',
+                                   embed=embed)
+
     # The team creation process
     async def create_team(guild, gen_name):
 
@@ -521,10 +532,9 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         g = Github(github_token)
         org = g.get_organization(org_name)
         team = await create_org_team(gen_name, team_members, g, org)
-        await text_channel.send(f'https://github.com/orgs/{org_name}/teams/{team.name}')
 
         repo = await create_repo(org, team, gen_name)
-        await text_channel.send(f'https://github.com/{org_name}/{repo.name}')
+        await notify_about_team(repo, team, text_channel)
 
     async def kick_member(member, reason):
         guild = member.guild
@@ -619,7 +629,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await preview_message.delete()
 
             embed.insert_field_at(2, name="Trials", value="0")
-            msg = await chan.send(f'{ctx.author.mention} proposed an idea, please vote using a thumbs up reaction:',
+            msg = await chan.send(f'{ctx.author.mention} proposed an idea, '
+                                  f'@everyone please vote using a thumbs up reaction:',
                                   embed=embed)
             await msg.add_reaction('👍')
 

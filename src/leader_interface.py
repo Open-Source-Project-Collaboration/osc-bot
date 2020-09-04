@@ -10,6 +10,15 @@ def setup_leader_interface(bot):
                        "a leader in order to user this command", delete_after=6.0)
         await ctx.message.delete()
 
+    async def delete_from_running(gen_name):
+        running_channel_id = int(Config.get('running-channel'))
+        running_channel = bot.get_channel(running_channel_id)
+        messages = await running_channel.history().flatten()
+        for message in messages:
+            if not message.embeds or not message.author.bot or message.embeds[0].title != gen_name:
+                continue
+            await message.delete()
+
     @bot.command(hidden=True, brief="Leader command")
     async def mark_as_finished(ctx):
         channel = ctx.channel
@@ -40,9 +49,9 @@ def setup_leader_interface(bot):
             for participant in role.members:  # Check all the role members to add them to the participants string
                 participants_str += participant.mention + "\n"
             await finished_channel.send(f'`{gen_name}`\nParticipants:\n{participants_str}')
-            # TODO: Add the GitHub repo link
             await role.delete()
             await leader_role.delete()
+            await delete_from_running(gen_name)
 
     @bot.command(hidden=True, brief="Leader command")
     async def lhelp(ctx):

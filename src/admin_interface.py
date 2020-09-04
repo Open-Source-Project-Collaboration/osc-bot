@@ -139,7 +139,7 @@ def setup_admin_interface(bot):
             await ctx.send(ctx.author.mention + ", please input a valid integer.")
 
     @bot.command(hidden=True)
-    async def change_github_sleep_time(ctx, days, hours, minutes, seconds):
+    async def change_github_sleep_time(ctx, days, hours="0", minutes="0", seconds="0"):
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
         try:
