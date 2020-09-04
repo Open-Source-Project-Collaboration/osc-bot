@@ -474,7 +474,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             return
         try:
             github_user = github_client.get_user(github_user.user_github)
-            team.add_membership(github_user, role="maintainer")
+            team.add_membership(github_user, role="member")
         except UnknownObjectException:
             await member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
 
