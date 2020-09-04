@@ -629,7 +629,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await preview_message.delete()
 
             embed.insert_field_at(2, name="Trials", value="0")
-            msg = await chan.send(f'{ctx.author.mention} proposed an idea, please vote using a thumbs up reaction:',
+            msg = await chan.send(f'{ctx.author.mention} proposed an idea, '
+                                  f'@everyone please vote using a thumbs up reaction:',
                                   embed=embed)
             await msg.add_reaction('👍')
 
