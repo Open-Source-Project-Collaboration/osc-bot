@@ -1,3 +1,4 @@
+from common_functions import delete_from_running
 from config import Config
 import discord
 from asyncio import TimeoutError
@@ -9,15 +10,6 @@ def setup_leader_interface(bot):
         await ctx.send(ctx.author.mention + ", you must be in a channel of a team in which you are " +
                        "a leader in order to user this command", delete_after=6.0)
         await ctx.message.delete()
-
-    async def delete_from_running(gen_name):
-        running_channel_id = int(Config.get('running-channel'))
-        running_channel = bot.get_channel(running_channel_id)
-        messages = await running_channel.history().flatten()
-        for message in messages:
-            if not message.embeds or not message.author.bot or message.embeds[0].title != gen_name:
-                continue
-            await message.delete()
 
     @bot.command(hidden=True, brief="Leader command")
     async def mark_as_finished(ctx):
@@ -51,7 +43,7 @@ def setup_leader_interface(bot):
             await finished_channel.send(f'`{gen_name}`\nParticipants:\n{participants_str}')
             await role.delete()
             await leader_role.delete()
-            await delete_from_running(gen_name)
+            await delete_from_running(bot, gen_name)
 
     @bot.command(hidden=True, brief="Leader command")
     async def lhelp(ctx):

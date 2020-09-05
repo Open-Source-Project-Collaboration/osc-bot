@@ -8,6 +8,8 @@ from warn import Warn
 import discord
 from github import Github
 
+from common_functions import delete_from_running
+
 dotenv_path = path.join(path.dirname(__file__), '../.env')
 load_dotenv(dotenv_path)
 
@@ -21,15 +23,6 @@ def setup_admin_interface(bot):
     async def you_are_not_admin(ctx):
         await ctx.send(f'**You can\'t do that {ctx.author.mention}!**', delete_after=3.0)
         await ctx.message.delete()
-
-    async def delete_from_running(gen_name):
-        running_channel_id = int(Config.get('running-channel'))
-        running_channel = bot.get_channel(running_channel_id)
-        messages = await running_channel.history().flatten()
-        for message in messages:
-            if not message.embeds or not message.author.bot or message.embeds[0].title != gen_name:
-                continue
-            await message.delete()
 
     # Sets a channel in DB
     @bot.command(brief='Sets a channel in DB', hidden=True)
@@ -245,7 +238,7 @@ def setup_admin_interface(bot):
         if leader_role:
             await leader_role.delete()
         User.delete_team(team_name)
-        await delete_from_running(team_name)
+        await delete_from_running(bot, team_name)
         await ctx.send(f'Deleted the `{team_name}` team.')
 
     @bot.command(hidden=True, brief="Removes a warning from a member")

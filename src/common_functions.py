@@ -1,6 +1,8 @@
 import re
 import discord
 
+from config import Config
+
 
 async def get_gen_name(idea_name):
     if len(idea_name) > 95:
@@ -26,3 +28,13 @@ async def check_team_existence(ctx, team_name, roles):
         return None
 
     return role
+
+
+async def delete_from_running(bot, gen_name):
+    running_channel_id = int(Config.get('running-channel'))
+    running_channel = bot.get_channel(running_channel_id)
+    messages = await running_channel.history().flatten()
+    for message in messages:
+        if not message.embeds or not message.author.bot or message.embeds[0].title != gen_name:
+            continue
+        await message.delete()
