@@ -6,7 +6,7 @@ from user import User
 from warn import Warn
 
 import discord
-from github import Github, UnknownObjectException
+from github import Github
 
 dotenv_path = path.join(path.dirname(__file__), '../.env')
 load_dotenv(dotenv_path)
@@ -258,29 +258,3 @@ def setup_admin_interface(bot):
             return await ctx.send(f'The specified member now has {str(warnings)} warning(s).')
         except ValueError:
             return await ctx.send("Please mention a member to show their warnings")
-
-    @bot.command(hidden=True, brief="Edits a team name")
-    async def edit_team(ctx, old_name, new_name):
-        # Check admin perms
-        if not ctx.author.guild_permissions.administrator:
-            return await you_are_not_admin(ctx)
-
-        role: discord.Role = discord.utils.get(ctx.guild.roles, name=old_name)
-        category: discord.CategoryChannel = discord.utils.get(ctx.guild.categories, name=old_name)
-        if not role or not category:
-            return await ctx.send("Invalid team name")
-        if role.permissions.administrator:
-            return await ctx.send("You can't do that")
-
-        await role.edit(name=new_name)
-        await category.edit(name=new_name)
-        await ctx.send("Edited the role and category names")
-
-        g = Github(github_token)
-        org = g.get_organization(org_name)
-        try:
-            team = org.get_team_by_slug(old_name)
-            team.edit(new_name)
-            await ctx.send("Edited the team name.")
-        except UnknownObjectException:
-            await ctx.send("Couldn't find the team on GitHub")

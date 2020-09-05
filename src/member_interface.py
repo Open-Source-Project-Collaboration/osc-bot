@@ -11,9 +11,10 @@ import discord.ext.commands.errors
 
 from github import Github, UnknownObjectException
 
-import re
 from datetime import datetime, timezone, timedelta
 import pytz
+
+from common_functions import get_gen_name, check_team_existence
 
 # Set up .env path
 dotenv_path = path.join(path.dirname(__file__), '../.env')
@@ -72,8 +73,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
     async def create_new_team(ctx, team_name):
         if len(team_name) >= 45:
             return await ctx.send(ctx.author.mention + ", the idea name must be less than 45 characters long.")
-        team_name = re.sub("([^a-z-])+", '', team_name).lower()  # Remove anything that is not a letter
-        team_name = re.sub("(-)+", '-', team_name)  # Replace multiple dashes with a single one
+        team_name = await get_gen_name(team_name)
         await create_team(ctx.guild, team_name)
         await ctx.send(f'Created new team `{team_name}`')
 
@@ -182,6 +182,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         for user in users:
             guild = ctx.guild
             guild_user = guild.get_member(user.user_id)
+            if not guild_user:  # If the user has left the server
+                continue
             username = guild_user.name
             team = user.user_team
             role = discord.utils.get(guild_user.roles, name=team)
@@ -347,23 +349,6 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             return None
 
     # -------------------------------- Team management --------------------------------
-    async def check_team_existence(ctx, team_name, roles):
-        author_mention = ctx.author.mention
-        role = discord.utils.get(roles, name=team_name)
-        if not role:
-            await ctx.send(author_mention + ", invalid team name")
-            return None
-
-        category = discord.utils.get(ctx.guild.categories, name=team_name)
-        if not category:
-            await ctx.send(author_mention + ", invalid team name")
-            return None
-
-        if role.permissions.administrator:
-            await ctx.send(author_mention + ", you can't do that")
-            return None
-
-        return role
 
     @bot.command(brief="Adds you to a team of your choice")
     async def add_me(ctx, github_username="", team_name=""):
@@ -574,16 +559,11 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         idea_name = await get_idea_inputs(ctx, "the proposed idea name")
         if not idea_name:
             return
+        gen_name = await get_gen_name(idea_name)
 
-        if len(idea_name) > 95:
+        if not gen_name:
             await ctx.send(ctx.author.mention + ", the idea name length must be less that 95 characters long")
             return await new_idea(ctx)
-
-        # Format the name of the idea
-        gen_name = '-'.join(idea_name.split(' ')).lower()
-        gen_name = re.sub("([^a-z-])+", '', gen_name)  # Remove anything that is not a letter
-        gen_name = re.sub("(-)+", '-', gen_name)  # Replace multiple dashes with a single one
-        gen_name = gen_name[:-1] if gen_name[-1] == "-" else gen_name
 
         # Check if there is an idea team with the current idea
         role = discord.utils.get(ctx.guild.roles, name=gen_name)
@@ -914,5 +894,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await ctx.send(f'You can only use this command again after `{str(round(error.retry_after))}` seconds.')
         elif isinstance(error, discord.ext.commands.CommandNotFound):
             await ctx.send(f'Unknown command: `{ctx.message.content}`')
+        elif isinstance(error, discord.ext.commands.ExpectedClosingQuoteError):
+            await ctx.send("Please close all the quotation marks")
         else:
             raise error
