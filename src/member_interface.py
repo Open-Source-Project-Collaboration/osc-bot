@@ -367,6 +367,37 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
 
     # -------------------------------- Team management --------------------------------
 
+    async def manage_leader_voting(ctx, role, add=True):
+        category: discord.CategoryChannel = discord.utils.get(ctx.guild.categories, name=role.name)
+        # Check the team category
+        if not category:
+            return
+        voting_channel = None
+        # Find if there is voting
+        for channel in category.channels:
+            if channel.name != "leader-voting":
+                continue
+            voting_channel = channel
+        # If there is no voting, return
+        if not voting_channel:
+            return
+        messages = await voting_channel.history().flatten()
+        mention_message = None
+        # Find if there is a message that mentions the user
+        for message in messages:
+            if message.mentions and message.author.bot and message.mentions[0] == ctx.author:
+                mention_message = message
+        # If there is a message that mentions the user, do not resend
+        if add and mention_message:
+            return
+        # If there is not, send a message that mentions the user to be added to the leader voting process
+        elif add and not mention_message:
+            message = await voting_channel.send(ctx.author.mention)
+            return await message.add_reaction(THUMBS_UP_EMOJI)
+        # If the user wanted to be removed, remove the mention message
+        elif not add:
+            await mention_message.delete()
+
     @bot.command(brief="Adds you to a team of your choice")
     async def add_me(ctx, github_username="", team_name=""):
         if github_username == "":
@@ -374,7 +405,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         if team_name == "":
             return await ctx.send(ctx.author.mention + ", please provide the team name as a second argument "
                                                        "and your GitHub username as a first argument.")
-        if not await check_team_existence(ctx, team_name, ctx.guild.roles):
+        role = await check_team_existence(ctx, team_name, ctx.guild.roles)
+        if not role:
             return
         if not await check_submitted(ctx.author, team_name, github_username, ctx.channel):
             # Checks if the user has already inputted his GitHub and if he has the role
@@ -394,6 +426,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             return await ctx.send(ctx.author.mention + ", an error has occurred while adding you to the team.")
         await add_membership(ctx.author, team_name, g, team)
         await ctx.send("Done")
+        await manage_leader_voting(ctx, role)
 
     @bot.command(brief="Removes you from a team you are a member of")
     async def remove_me(ctx, team_name):
@@ -420,6 +453,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         team.remove_membership(github_user)
 
         await ctx.send(ctx.author.mention + ", I have removed you from the GitHub team")
+        await manage_leader_voting(ctx, role, add=False)
 
     # -------------------------------- Team creation --------------------------------
     async def vote_for_leader(role, guild, overwrites, category):
