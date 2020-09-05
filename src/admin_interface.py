@@ -1,20 +1,11 @@
-from os import path, environ
-from dotenv import load_dotenv
-
 from config import Config
 from user import User
 from warn import Warn
 
 import discord
-from github import Github
 
-from common_functions import delete_from_running
-
-dotenv_path = path.join(path.dirname(__file__), '../.env')
-load_dotenv(dotenv_path)
-
-github_token = environ.get('GITHUB_TOKEN')
-org_name = environ.get('ORG_NAME')
+from common_functions import delete_entire_team
+from member_interface import github_token, org_name
 
 
 # Setup function
@@ -212,33 +203,7 @@ def setup_admin_interface(bot):
     async def delete_team(ctx, team_name):
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
-        role = discord.utils.get(ctx.guild.roles, name=team_name)
-        if not role:
-            return await ctx.send(ctx.author.mention + ", invalid team name")
-        leader_role = discord.utils.get(ctx.guild.roles, name='pl-' + team_name)
-
-        category = discord.utils.get(ctx.guild.categories, name=team_name)
-        if not category:
-            return await ctx.send(ctx.author.mention + ", invalid team name")
-
-        if role.permissions.administrator:
-            return await ctx.send(ctx.author.mention + ", you can't do that")
-
-        g = Github(github_token)
-        org = g.get_organization(org_name)
-        team = org.get_team_by_slug(team_name)
-        if not team:
-            return await ctx.send("Couldn't find the team on GitHub")
-
-        team.delete()
-        for channel in category.channels:
-            await channel.delete()
-        await category.delete()
-        await role.delete()
-        if leader_role:
-            await leader_role.delete()
-        User.delete_team(team_name)
-        await delete_from_running(bot, team_name)
+        await delete_entire_team(bot, ctx, team_name, github_token, org_name)
         await ctx.send(f'Deleted the `{team_name}` team.')
 
     @bot.command(hidden=True, brief="Removes a warning from a member")
