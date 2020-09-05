@@ -1,6 +1,9 @@
+from common_functions import delete_entire_team
 from config import Config
 import discord
 from asyncio import TimeoutError
+
+from member_interface import github_token, org_name
 
 
 def setup_leader_interface(bot):
@@ -9,15 +12,6 @@ def setup_leader_interface(bot):
         await ctx.send(ctx.author.mention + ", you must be in a channel of a team in which you are " +
                        "a leader in order to user this command", delete_after=6.0)
         await ctx.message.delete()
-
-    async def delete_from_running(gen_name):
-        running_channel_id = int(Config.get('running-channel'))
-        running_channel = bot.get_channel(running_channel_id)
-        messages = await running_channel.history().flatten()
-        for message in messages:
-            if not message.embeds or not message.author.bot or message.embeds[0].title != gen_name:
-                continue
-            await message.delete()
 
     @bot.command(hidden=True, brief="Leader command")
     async def mark_as_finished(ctx):
@@ -39,19 +33,11 @@ def setup_leader_interface(bot):
         except TimeoutError:  # If the user did not reply with a yes after 10 seconds
             await ctx.send("Will not mark that as finished")
         else:  # If the user replied with a yes
-            for channel in category.channels:  # Delete all the channels related to the team
-                await channel.delete()
-            await category.delete()
+            await delete_entire_team(bot, ctx, gen_name, github_token, org_name)
+
             finished_channel_id = int(Config.get("finished-channel"))  # The channel to post the finished project
             finished_channel = bot.get_channel(finished_channel_id)
-            role = discord.utils.get(ctx.guild.roles, name=gen_name)  # The team role
-            participants_str = ''  # A string to hold all the members in the team
-            for participant in role.members:  # Check all the role members to add them to the participants string
-                participants_str += participant.mention + "\n"
-            await finished_channel.send(f'`{gen_name}`\nParticipants:\n{participants_str}')
-            await role.delete()
-            await leader_role.delete()
-            await delete_from_running(gen_name)
+            await finished_channel.send(f'https://github.com/{org_name}/{gen_name}')
 
     @bot.command(hidden=True, brief="Leader command")
     async def lhelp(ctx):
