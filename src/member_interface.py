@@ -162,7 +162,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                        f'to reply with their Github usernames.')
 
     @bot.command(brief="Shows all teams members and their GitHub usernames")
-    async def show_teams(ctx, team_name=''):
+    async def list_members(ctx, team_name=''):
         if team_name:  # If the user provided a team name
             users = [User.get_team(team_name)]
             title_name = team_name
@@ -200,6 +200,23 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         embed.add_field(name="Username", value=users_str)
         embed.add_field(name="Team", value=teams_str)
         embed.add_field(name="Github username", value=githubs_str)
+        await ctx.send(embed=embed)
+
+    @bot.command(brief="Shows a list of teams that you can join")
+    async def list_teams(ctx):
+        g = Github(github_token)
+        org = g.get_organization(org_name)
+        teams = org.get_teams()
+        embed = discord.Embed(title="Use the any of the following commands to add yourself to a specific team")
+        for team in teams:
+            gen_name = team.name
+            if not discord.utils.get(ctx.guild.roles, name=gen_name) or \
+                    not discord.utils.get(ctx.guild.categories, name=gen_name):
+                continue
+            embed.add_field(name=team.name, value=f'#!add_me "your github username" "{team.name}"')
+        if not embed.fields:
+            embed.title = "There are no teams available"
+
         await ctx.send(embed=embed)
 
     # -------------------------------- Supporting functions --------------------------------
