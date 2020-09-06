@@ -12,15 +12,19 @@ class Team(Base):
     category_id = Column(Numeric)  # The id of the category
     general_id = Column(Numeric)  # The id of the general channel
     voting_id = Column(Numeric)  # The id of the voting channel
+    github_id = Column(Numeric)
+    repo_id = Column(Numeric)
 
     users = relationship("User", order_by=User.user_id, back_populates="team", cascade="all, delete, delete-orphan")
 
-    def __init__(self, team_name, role_id, leader_role_id, category_id, general_id, voting_id=-1):
+    def __init__(self, team_name, role_id, leader_role_id, category_id, general_id, github_id, repo_id, voting_id=-1):
         self.team_name = team_name
         self.role_id = role_id
         self.leader_role_id = leader_role_id
         self.category_id = category_id
         self.general_id = general_id
+        self.github_id = github_id
+        self.repo_id = repo_id
         self.voting_id = voting_id
 
     def __repr__(self):
@@ -36,9 +40,10 @@ class Team(Base):
     @staticmethod
     def get_all():
         teams = session.query(Team).all()
+        return teams if teams else None
 
     @staticmethod
-    def set(team_name, role_id, leader_role_id, category_id, general_id):
+    def set(team_name, role_id, leader_role_id, category_id, general_id, github_id, repo_id):
         team: Team = Team.get(team_name)
         if team:
             team.role_id = role_id
@@ -46,9 +51,25 @@ class Team(Base):
             team.category_id = category_id
             team.general_id = general_id
         else:
-            team = Team(team_name, role_id, leader_role_id, category_id, general_id)
+            team = Team(team_name, role_id, leader_role_id, category_id, general_id, github_id, repo_id)
             session.add(team)
 
+        session.commit()
+
+    @staticmethod
+    def set_voting_channel(team_name, voting_id):
+        team: Team = Team.get(team_name)
+        if not team:
+            return
+        team.voting_id = voting_id
+        session.commit()
+
+    @staticmethod
+    def delete_voting_channel(team_name):
+        team: Team = Team.get(team_name)
+        if not team:
+            return
+        team.voting_id = -1
         session.commit()
 
     @staticmethod

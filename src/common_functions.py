@@ -2,7 +2,6 @@ import re
 import discord
 
 from config import Config
-from user import User
 from team import Team
 
 from github import Github

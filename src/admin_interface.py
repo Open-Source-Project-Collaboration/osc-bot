@@ -110,6 +110,8 @@ def setup_admin_interface(bot):
     async def clean_up_db(ctx):
         roles = ctx.guild.roles
         teams = Team.get_all()
+        if not teams:
+            return
         deleted_teams = 0
         # Deletes the teams that don't have associated roles
         for team in teams:
@@ -201,6 +203,7 @@ def setup_admin_interface(bot):
             return await ctx.send("There is no leader to assign")
         await leader.add_roles(role)
         await voting_channel.delete()
+        await team.delete_voting_channel(gen_name)
         general_channel = guild.get_channel(team.general_id)
         if not general_channel:
             return

@@ -61,12 +61,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         if team.voting_id != -1:
             return await ctx.send("A leader already exists for this team or there is a current leader voting process")
 
-        overwrites = {role: discord.PermissionOverwrite(view_channel=True),
-                      guild.default_role: discord.PermissionOverwrite(view_channel=False)}
         category = discord.utils.get(guild.categories, id=team.category_id)
         if not category:
             return await ctx.send("An error has occurred.")
-        await vote_for_leader(role, guild, overwrites, category)
+        await vote_for_leader(team.team_name, guild, category)
         await ctx.send(f'The leader voting process has been started for `{team_name}`')
 
     # Used to manually create teams. This could be used for the teams that existed before the bot was created.
@@ -426,12 +424,13 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         else:
             await ctx.send("Invalid GitHub username.")
 
+        team: Team = Team.get(team_name)
         g = Github(github_token)
         org = g.get_organization(org_name)
-        team = org.get_team_by_slug(team_name)
-        if not team:
+        github_team = org.get_team(team.github_id)
+        if not github_team:
             return await ctx.send(ctx.author.mention + ", an error has occurred while adding you to the team.")
-        await add_membership(ctx.author, team_name, g, team)
+        await add_membership(ctx.author, team_name, g, github_team)
         await ctx.send("Done")
         await manage_leader_voting(ctx, team_name)
 
@@ -440,31 +439,40 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         role = await check_team_existence(ctx, team_name, ctx.author.roles)
         if not role:
             return
+        team: Team = Team.get(team_name)
         await ctx.author.remove_roles(role)
         await ctx.send(ctx.author.mention + ", I have removed your role. Please wait...")
-        leader_role = discord.utils.get(ctx.author.roles, name='pl-' + team_name)
+        leader_role = discord.utils.get(ctx.author.roles, id=team.leader_role_id)
         if leader_role:
             await ctx.author.remove_roles(leader_role)
             await ctx.send(ctx.author.mention + ", I have removed your leadership role")
 
         g = Github(github_token)
         org = g.get_organization(org_name)
-        team = org.get_team_by_slug(team_name)
-        if not team:
+        github_team = org.get_team(team.github_id)
+        if not github_team:
             return await ctx.send(ctx.author.mention + ", couldn't find the team on GitHub")
         user = User.get(ctx.author.id, team_name)
         if not user:
             return await ctx.send(ctx.author.mention + ", couldn't find you in the database.")
         github_username = user.user_github
         github_user = g.get_user(github_username)
-        team.remove_membership(github_user)
+        github_team.remove_membership(github_user)
 
         await ctx.send(ctx.author.mention + ", I have removed you from the GitHub team")
         await manage_leader_voting(ctx, team_name, add=False)
 
     # -------------------------------- Team creation --------------------------------
-    async def vote_for_leader(role, guild, overwrites, category):
+    async def vote_for_leader(gen_name, guild, category):
+        team: Team = Team.get(gen_name)
+        if not team:
+            return
+        role = guild.get_role(team.role_id)
+        # Only the team role members will be able to view the channel
+        overwrites = {role: discord.PermissionOverwrite(view_channel=True),
+                      guild.default_role: discord.PermissionOverwrite(view_channel=False)}
         voting_channel = await guild.create_text_channel("leader-voting", overwrites=overwrites, category=category)
+        Team.set_voting_channel(gen_name, voting_channel.id)
         await voting_channel.send("Vote for who you would like to be the project leader")
         for member in role.members:
             if member.bot:
@@ -484,8 +492,9 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 if member.bot:
                     await member.remove_roles(role)
 
-        if not discord.utils.get(guild.roles, name="pl-" + gen_name):  # Creates the leader role
-            await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
+        leader_role = discord.utils.get(guild.roles, name="pl-" + gen_name)
+        if not leader_role:  # Creates the leader role
+            leader_role = await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
 
         await role.edit(hoist=True)  # Makes the team role show in the members list
 
@@ -507,8 +516,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         await text_channel.send(role.mention + " LET'S GO!!")
         if not role.members:
             return text_channel
-        await vote_for_leader(role, guild, overwrites, category)
-        return text_channel
+        return text_channel, category, role, leader_role
 
     # To add users to a GitHub team
     async def add_membership(member, gen_name, github_client, team):
@@ -568,16 +576,18 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
     # The team creation process
     async def create_team(guild, gen_name):
 
-        text_channel = await create_category_channels(guild, gen_name)
-        role = discord.utils.get(guild.roles, name=gen_name)
+        text_channel, category, role, leader_role = await create_category_channels(guild, gen_name)
+
         team_members = role.members
 
         g = Github(github_token)
         org = g.get_organization(org_name)
-        team = await create_org_team(gen_name, team_members, g, org)
+        github_team = await create_org_team(gen_name, team_members, g, org)
 
-        repo = await create_repo(org, team, gen_name)
-        await notify_about_team(repo, team, text_channel)
+        repo = await create_repo(org, github_team, gen_name)
+        Team.set(gen_name, role.id, leader_role.id, category.id, text_channel.id, github_team.id, repo.id)
+        await notify_about_team(repo, github_team, text_channel)
+        await vote_for_leader(gen_name, guild, category)
 
     async def kick_member(member, reason):
         guild = member.guild
@@ -714,9 +724,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 await message.delete()
 
     async def warn_inactives(participants_message, gen_name):
+        team: Team = Team.get(gen_name)
         voters = participants_message.mentions
         for voter in voters:
-            role = discord.utils.get(voter.roles, name=gen_name)
+            role = discord.utils.get(voter.roles, id=team.role_id)
             if role:
                 continue
             await warn_member(voter, "Failing to reply with their GitHub username after voting for an idea.")
