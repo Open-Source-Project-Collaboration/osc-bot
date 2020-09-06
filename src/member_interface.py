@@ -102,7 +102,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             status = "inactive"
 
             guild_user = ctx.guild.get_member(user.user_id)  # The user in the server
-            role = discord.utils.get(ctx.guild.roles, name=gen_name)  # The team role
+            role = ctx.guild.get_role(user.team.role_id)  # The team role
             repo = org.get_repo(gen_name)  # The team repository
             stats_contributors = repo.get_stats_contributors()
             if not repo or not role or not guild_user or not stats_contributors:
@@ -186,10 +186,9 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             if not guild_user:  # If the user has left the server
                 continue
             username = guild_user.name
-            team = user.user_team
-            role = discord.utils.get(guild_user.roles, name=team)
+            role = discord.utils.get(guild_user.roles, id=user.team.role_id)
 
-            teams_str += team + "\n"
+            teams_str += user.team.team_name + "\n"
             github_username = user.user_github
             users_str += username + "\n"
             githubs_str += github_username + "\n"
@@ -264,8 +263,9 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                                     f'seconds to send their GitHub usernames')
         users = participants_message.mentions
         participants_list = []
+        team: Team = Team.get(gen_name)
         for user in users:
-            if not discord.utils.get(user.roles, name=gen_name):  # If the mentioned user doesn't have the role
+            if not discord.utils.get(user.roles, id=team.role_id):  # If the mentioned user doesn't have the role
                 participants_list.append(user)
         await get_all_githubs(participants_list, gen_name, participants_message, time_to_wait)
 
@@ -311,7 +311,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
     async def check_submitted_validity(member, gen_name, github_user, channel):
         valid = True
         user = User.get(member.id, gen_name)
-        role = discord.utils.get(member.roles, name=gen_name)
+        role = discord.utils.get(member.roles, id=user.team.role_id)
         if not user:
             return valid
         if user.user_github == github_user:
@@ -633,9 +633,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await ctx.send(ctx.author.mention + ", the idea name length must be less that 95 characters long")
             return await new_idea(ctx)
 
-        # Check if there is an idea team with the current idea
-        role = discord.utils.get(ctx.guild.roles, name=gen_name)
-        if role:
+        if Team.get(gen_name):
             await ctx.send(ctx.author.mention + ", this idea name already exists.")
             return await new_idea(ctx)
 
