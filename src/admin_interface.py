@@ -238,3 +238,13 @@ def setup_admin_interface(bot):
             return await ctx.send(f'The specified member now has {str(warnings)} warning(s).')
         except ValueError:
             return await ctx.send("Please mention a member to show their warnings")
+
+    @bot.command(hidden=True, brief="Sets a user to a team")
+    async def set_team(ctx, member_id, team_name, github_username):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+
+        if not ctx.guild.get_member(member_id):
+            return await ctx.send("The specified user is not in the server")
+
+        User.set(member_id, team_name, github_username)
