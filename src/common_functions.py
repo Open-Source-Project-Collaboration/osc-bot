@@ -3,6 +3,7 @@ import discord
 
 from config import Config
 from user import User
+from team import Team
 
 from github import Github
 
@@ -19,16 +20,13 @@ async def get_gen_name(idea_name):
 
 async def check_team_existence(ctx, team_name, roles):
     author_mention = ctx.author.mention
-    role = discord.utils.get(roles, name=team_name)
-    category = discord.utils.get(ctx.guild.categories, name=team_name)
+    team = Team.get(team_name)
+    if not team:
+        return await ctx.send(author_mention + ", invalid team name.")
 
-    if not category or not role:
-        await ctx.send(author_mention + ", invalid team name")
-        return None
-
-    if role.permissions.administrator:
-        await ctx.send(author_mention + ", you can't do that")
-        return None
+    role = discord.utils.get(roles, id=team.role_id)
+    if not role:
+        return await ctx.send(author_mention + ", invalid team name.")
 
     return role
 
@@ -43,13 +41,14 @@ async def delete_from_running(bot, gen_name):
         await message.delete()
 
 
-async def delete_entire_team(bot, ctx, team_name, github_token, org_name):
-    role = discord.utils.get(ctx.guild.roles, name=team_name)
-    if not role:
-        return await ctx.send(ctx.author.mention + ", invalid team name")
-    leader_role = discord.utils.get(ctx.guild.roles, name='pl-' + team_name)
+async def delete_entire_team(bot, ctx: discord, team_name, github_token, org_name):
+    team: Team = Team.get(team_name)
+    if not team:
+        return await ctx.send("Invalid team name.")
+    role = ctx.guild.get_role(team.role_id)
+    leader_role: discord.Role = ctx.guild.get_role(team.leader_role_id)
 
-    category = discord.utils.get(ctx.guild.categories, name=team_name)
+    category = discord.utils.get(ctx.guild.categories, id=team.category_id)
     if not category:
         return await ctx.send(ctx.author.mention + ", invalid team name")
 
@@ -58,16 +57,16 @@ async def delete_entire_team(bot, ctx, team_name, github_token, org_name):
 
     g = Github(github_token)
     org = g.get_organization(org_name)
-    team = org.get_team_by_slug(team_name)
-    if not team:
+    github_team = org.get_team_by_slug(team_name)
+    if not github_team:
         return await ctx.send("Couldn't find the team on GitHub")
 
-    team.delete()
+    github_team.delete()
     for channel in category.channels:
         await channel.delete()
     await category.delete()
     await role.delete()
-    if leader_role:
+    if leader_role.id != -1:
         await leader_role.delete()
-    User.delete_team(team_name)
+    team.delete_team(team_name)
     await delete_from_running(bot, team_name)

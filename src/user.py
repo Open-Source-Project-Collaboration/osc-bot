@@ -1,5 +1,7 @@
+from sqlalchemy.orm import relationship
+
 from db import Base, session, engine
-from sqlalchemy import Column, String, Integer, Numeric
+from sqlalchemy import Column, String, Integer, Numeric, ForeignKey
 
 
 # The user model: a user can have multiple GitHub usernames for different teams but one GitHub username for the same
@@ -10,8 +12,10 @@ class User(Base):
     # Fields
     unique_id = Column(Integer, primary_key=True)
     user_id = Column(Numeric)
-    user_team = Column(String)
+    user_team = Column(String, ForeignKey("teams.team_name"))
     user_github = Column(String)
+
+    team = relationship("Team", back_populates="users")
 
     # Constructor and str
     def __init__(self, user_id, user_team, user_github):

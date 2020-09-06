@@ -1,5 +1,6 @@
 from config import Config
 from user import User
+from team import Team
 from warn import Warn
 
 import discord
@@ -108,16 +109,25 @@ def setup_admin_interface(bot):
     @bot.command(hidden=True, brief="Deletes from the database the teams which don't have roles")
     async def clean_up_db(ctx):
         roles = ctx.guild.roles
-        roles_names = []
+        teams = Team.get_all()
+        deleted_teams = 0
+        # Deletes the teams that don't have associated roles
+        for team in teams:
+            if ctx.guild.get_role(team.role_id) in roles:
+                continue
+            team.delete_team(team.team_name)
+            deleted_teams += 1
+
         users = User.get_teams()
-        for role in roles:
-            roles_names.append(role.name)
-        removed = 0
+        deleted_users = 0
+        # Deletes the users that aren't in the server
         for user in users:
-            if user.user_team not in roles_names:
-                User.delete_team(user.user_team)
-                removed += 1
-        await ctx.send(f'Database has been cleaned up. Removed {removed} team(s)')
+            if ctx.guild.get_member(user.user_id):
+                continue
+            User.delete(user.user_id, user.user_team)
+            deleted_users += 1
+
+        await ctx.send(f'Database cleaned up. Deleted {deleted_teams} team(s) and {deleted_users} user.')
 
     @bot.command(hidden=True)
     async def change_github_required_percentage(ctx, percentage):
@@ -151,13 +161,18 @@ def setup_admin_interface(bot):
             return await you_are_not_admin(ctx)
 
         voting_channel = ctx.channel
-        if voting_channel.name != 'leader-voting':
-            return await ctx.send(ctx.author.mention + ", this is not a leader voting channel.")
         category = voting_channel.category
         gen_name = category.name  # Gets the team name from the Category name
+        team: Team = Team.get(gen_name)
+
+        if not team or voting_channel.id != team.voting_id:
+            return await ctx.send(ctx.author.mention + ", this is not a leader voting channel.")
+
         guild = ctx.guild
-        role = discord.utils.get(guild.roles, name="pl-" + gen_name)  # The project leader role created in
+        role = ctx.guild.get_role(team.leader_role_id)  # The project leader role created in
         # create_category_channels() function
+        if not role:
+            role = await guild.create_role(name="pl-" + gen_name)
         if role.members:
             return await ctx.send(ctx.author.mention + ", a project leader already exists for this project")
 
@@ -176,7 +191,8 @@ def setup_admin_interface(bot):
             if voters_number >= max_votes:
                 leader_to_add = message.mentions[0]
                 team_role = discord.utils.get(leader_to_add.roles, name=gen_name)
-                if not team_role:
+                if not team_role:  # Happens when the user has left the team without his name getting removed from the
+                    # leader voting
                     continue
                 leader = leader_to_add
                 max_votes = voters_number
@@ -184,8 +200,10 @@ def setup_admin_interface(bot):
         if not leader:
             return await ctx.send("There is no leader to assign")
         await leader.add_roles(role)
-        general_channel = discord.utils.get(guild.channels, category=category, name="general")
         await voting_channel.delete()
+        general_channel = guild.get_channel(team.general_id)
+        if not general_channel:
+            return
         await general_channel.send(leader.mention + " is now the project leader!")
 
     @bot.command(hidden=True, brief="Shows the number of warnings a user has received")
