@@ -69,3 +69,4 @@ async def delete_entire_team(bot, ctx: discord, team_name, github_token, org_nam
         await leader_role.delete()
     team.delete_team(team_name)
     await delete_from_running(bot, team_name)
+    await ctx.send(f'Deleted the `{team_name}` team')

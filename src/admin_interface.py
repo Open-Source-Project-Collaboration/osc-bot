@@ -111,7 +111,7 @@ def setup_admin_interface(bot):
         roles = ctx.guild.roles
         teams = Team.get_all()
         if not teams:
-            return
+            return await ctx.send("There are no teams to clean up.")
         deleted_teams = 0
         # Deletes the teams that don't have associated roles
         for team in teams:
@@ -129,7 +129,7 @@ def setup_admin_interface(bot):
             User.delete(user.user_id, user.user_team)
             deleted_users += 1
 
-        await ctx.send(f'Database cleaned up. Deleted {deleted_teams} team(s) and {deleted_users} user.')
+        await ctx.send(f'Database cleaned up. Deleted {deleted_teams} team(s) and {deleted_users} user(s).')
 
     @bot.command(hidden=True)
     async def change_github_required_percentage(ctx, percentage):
@@ -225,7 +225,6 @@ def setup_admin_interface(bot):
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
         await delete_entire_team(bot, ctx, team_name, github_token, org_name)
-        await ctx.send(f'Deleted the `{team_name}` team.')
 
     @bot.command(hidden=True, brief="Removes a warning from a member")
     async def unwarn(ctx, user):

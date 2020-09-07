@@ -1,21 +1,20 @@
 from db import Base, session, engine
-from sqlalchemy import Column, String, Numeric
+from sqlalchemy import Column, String, BigInteger
 from sqlalchemy.orm import relationship
-from user import User
 
 
 class Team(Base):
     __tablename__ = 'teams'
     team_name = Column(String, primary_key=True)
-    role_id = Column(Numeric)  # The id of the role
-    leader_role_id = Column(Numeric)
-    category_id = Column(Numeric)  # The id of the category
-    general_id = Column(Numeric)  # The id of the general channel
-    voting_id = Column(Numeric)  # The id of the voting channel
-    github_id = Column(Numeric)
-    repo_id = Column(Numeric)
+    role_id = Column(BigInteger)  # The id of the role
+    leader_role_id = Column(BigInteger)
+    category_id = Column(BigInteger)  # The id of the category
+    general_id = Column(BigInteger)  # The id of the general channel
+    voting_id = Column(BigInteger)  # The id of the voting channel
+    github_id = Column(BigInteger)
+    repo_id = Column(BigInteger)
 
-    users = relationship("User", order_by=User.user_id, back_populates="team", cascade="all, delete, delete-orphan")
+    users = relationship("User", back_populates="team", cascade="all, delete, delete-orphan")
 
     def __init__(self, team_name, role_id, leader_role_id, category_id, general_id, github_id, repo_id, voting_id=-1):
         self.team_name = team_name
@@ -34,7 +33,7 @@ class Team(Base):
     # Static interface
     @staticmethod
     def get(team_name):
-        team = session.query(Team).filter_by(team_name=team_name)
+        team = session.query(Team).filter_by(team_name=team_name).first()
         return team if team else None
 
     @staticmethod
@@ -50,6 +49,8 @@ class Team(Base):
             team.leader_role_id = leader_role_id
             team.category_id = category_id
             team.general_id = general_id
+            team.github_id = github_id
+            team.repo_id = repo_id
         else:
             team = Team(team_name, role_id, leader_role_id, category_id, general_id, github_id, repo_id)
             session.add(team)
