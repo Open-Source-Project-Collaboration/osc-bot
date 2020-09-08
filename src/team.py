@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 class Team(Base):
     __tablename__ = 'teams'
     team_name = Column(String, primary_key=True)
+    # Change to numeric if larger ids are found
     role_id = Column(BigInteger)  # The id of the role
     leader_role_id = Column(BigInteger)
     category_id = Column(BigInteger)  # The id of the category

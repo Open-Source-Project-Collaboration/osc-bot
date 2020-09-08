@@ -422,10 +422,19 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         role = await check_team_existence(ctx, team_name, ctx.guild.roles)
         if not role:
             return
+
+        def check(m):
+            return m.author == ctx.author and m.channel == ctx.channel \
+                   and "a:yes" in m.content.lower().strip().replace(" ", "")
+
         if not await check_submitted_validity(ctx.author, team_name, github_username, ctx.channel):
             # Checks if the user has already inputted his GitHub and if he has the role
             # If the user has the role and has already inputted the same GitHub name
-            return await ctx.send("Nothing to do here :)")
+            await ctx.send("If you are not in the Github team and would like to be added type: `a: yes`")
+            try:
+                await bot.wait_for('message', check=check, timeout=20)
+            except asyncio.TimeoutError:
+                return await ctx.send(ctx.author.mention + ", no actions have been performed on you")
 
         github_user = await add_github(ctx.guild, ctx.author, github_username, team_name)
         if github_user:
