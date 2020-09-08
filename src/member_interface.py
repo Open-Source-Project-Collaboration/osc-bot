@@ -474,10 +474,13 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         if not user:
             return await ctx.send(ctx.author.mention + ", couldn't find you in the database.")
         github_username = user.user_github
-        github_user = g.get_user(github_username)
-        github_team.remove_membership(github_user)
+        try:
+            github_user = g.get_user(github_username)
+            github_team.remove_membership(github_user)
 
-        await ctx.send(ctx.author.mention + ", I have removed you from the GitHub team")
+            await ctx.send(ctx.author.mention + ", I have removed you from the GitHub team")
+        except UnknownObjectException:
+            await ctx.send("There was a problem finding you on GitHub, perhaps you have changed your username?")
         await manage_leader_voting(ctx, team_name, add=False)
 
     # -------------------------------- Team creation --------------------------------
