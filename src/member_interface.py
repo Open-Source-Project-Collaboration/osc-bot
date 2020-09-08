@@ -57,9 +57,12 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         role = ctx.guild.get_role(team.role_id)
         if not role:
             return await ctx.send("Couldn't find the team role.")
+        leader_role = ctx.guild.get_role(team.leader_role_id)
+        if leader_role.members:
+            return await ctx.send("There is already a leader for this team.")
 
         if team.voting_id != -1:
-            return await ctx.send("A leader already exists for this team or there is a current leader voting process")
+            return await ctx.send("There is a current leader voting process")
 
         category = discord.utils.get(guild.categories, id=team.category_id)
         if not category:
@@ -577,7 +580,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         await text_channel.send(f'https://github.com/{org_name}/{repo.name}')
         await running_channel.send(f'A new team has been created!\n'
                                    f'https://github.com/{org_name}/{repo.name}\n'
-                                   f'Please use `#!add_me "your Github username" "{team.name}"` to be added.`',
+                                   f'Please use `#!add_me "your Github username" "{team.name}"` to be added.',
                                    embed=embed)
 
     # The team creation process

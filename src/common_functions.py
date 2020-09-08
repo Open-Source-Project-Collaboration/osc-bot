@@ -21,11 +21,13 @@ async def check_team_existence(ctx, team_name, roles):
     author_mention = ctx.author.mention
     team = Team.get(team_name)
     if not team:
-        return await ctx.send(author_mention + ", invalid team name.")
+        await ctx.send(author_mention + ", invalid team name.")
+        return None
 
     role = discord.utils.get(roles, id=team.role_id)
     if not role:
-        return await ctx.send(author_mention + ", invalid team name.")
+        await ctx.send(author_mention + ", invalid team name.")
+        return None
 
     return role
 
@@ -69,4 +71,7 @@ async def delete_entire_team(bot, ctx: discord, team_name, github_token, org_nam
         await leader_role.delete()
     team.delete_team(team_name)
     await delete_from_running(bot, team_name)
-    await ctx.send(f'Deleted the `{team_name}` team')
+    try:
+        await ctx.send(f'Deleted the `{team_name}` team')
+    except discord.NotFound:
+        return

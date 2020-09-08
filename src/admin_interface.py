@@ -203,7 +203,7 @@ def setup_admin_interface(bot):
             return await ctx.send("There is no leader to assign")
         await leader.add_roles(role)
         await voting_channel.delete()
-        await team.delete_voting_channel(gen_name)
+        team.delete_voting_channel(gen_name)
         general_channel = guild.get_channel(team.general_id)
         if not general_channel:
             return
