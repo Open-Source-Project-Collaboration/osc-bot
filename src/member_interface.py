@@ -186,7 +186,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         for user in users:
             guild = ctx.guild
             guild_user = guild.get_member(user.user_id)
-            if not guild_user:  # If the user has left the server
+            if not guild_user or not user.team:  # If the user has left the server or the team is still in creation
                 continue
             username = guild_user.name
             role = discord.utils.get(guild_user.roles, id=user.team.role_id)
@@ -493,7 +493,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         overwrites = {role: discord.PermissionOverwrite(view_channel=True),
                       guild.default_role: discord.PermissionOverwrite(view_channel=False)}
         voting_channel = discord.utils.get(guild.channels, name='leader-voting', category=category)
-        if voting_channel:
+        if voting_channel:  # TODO: add to voting_id in teams table
             return
         voting_channel = await guild.create_text_channel("leader-voting", overwrites=overwrites, category=category)
         Team.set_voting_channel(gen_name, voting_channel.id)
