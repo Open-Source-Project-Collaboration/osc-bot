@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import asyncio
 
 from config import Config
+from team import Team
 from user import User
 from warn import Warn
 
@@ -50,20 +51,23 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         if not team_name:
             return await ctx.send(ctx.author.mention + ", please input a team name")
 
-        role = discord.utils.get(guild.roles, name=team_name)
+        team: Team = Team.get(team_name)
+        if not team:
+            return await ctx.send("Invalid team name.")
+        role = ctx.guild.get_role(team.role_id)
         if not role:
-            return await ctx.send("This team doesn't exist")
+            return await ctx.send("Couldn't find the team role.")
+        leader_role = ctx.guild.get_role(team.leader_role_id)
+        if leader_role.members:
+            return await ctx.send("There is already a leader for this team.")
 
-        leading_role = discord.utils.get(guild.roles, name="pl-" + team_name)
-        if leading_role.members:
-            return await ctx.send("A leader already exists for this team")
+        if team.voting_id != -1:
+            return await ctx.send("There is a current leader voting process")
 
-        overwrites = {role: discord.PermissionOverwrite(view_channel=True),
-                      guild.default_role: discord.PermissionOverwrite(view_channel=False)}
-        category = discord.utils.get(guild.categories, name=team_name)
+        category = discord.utils.get(guild.categories, id=team.category_id)
         if not category:
             return await ctx.send("An error has occurred.")
-        await vote_for_leader(role, guild, overwrites, category)
+        await vote_for_leader(team.team_name, guild, category)
         await ctx.send(f'The leader voting process has been started for `{team_name}`')
 
     # Used to manually create teams. This could be used for the teams that existed before the bot was created.
@@ -101,7 +105,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             status = "inactive"
 
             guild_user = ctx.guild.get_member(user.user_id)  # The user in the server
-            role = discord.utils.get(ctx.guild.roles, name=gen_name)  # The team role
+            role = ctx.guild.get_role(user.team.role_id)  # The team role
             repo = org.get_repo(gen_name)  # The team repository
             stats_contributors = repo.get_stats_contributors()
             if not repo or not role or not guild_user or not stats_contributors:
@@ -175,7 +179,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         embed = discord.Embed(title=title_name)
 
         if not users:  # Happens when get_teams() function returns None
-            return await ctx.send("There are currently no teams.")
+            return await ctx.send("There are currently no members in teams.")
         elif users == [None]:  # Happens when get_team() function returns None
             return await ctx.send("There is no team with this name.")
 
@@ -185,14 +189,14 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             if not guild_user:  # If the user has left the server
                 continue
             username = guild_user.name
-            team = user.user_team
-            role = discord.utils.get(guild_user.roles, name=team)
-            if not role:  # If the user doesn't have the role (left the team)
-                continue
-            teams_str += team + "\n"
+            role = discord.utils.get(guild_user.roles, id=user.team.role_id)
+
+            teams_str += "\n" + user.team.team_name
             github_username = user.user_github
-            users_str += username + "\n"
-            githubs_str += github_username + "\n"
+            users_str += "\n" + username
+            githubs_str += "\n" + github_username
+            if not role:
+                githubs_str += " [LEFT]"
 
         users_str = "N/A" if not users_str else users_str
         githubs_str = "N/A" if not githubs_str else githubs_str
@@ -210,8 +214,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         embed = discord.Embed(title="Use the any of the following commands to add yourself to a specific team")
         for team in teams:
             gen_name = team.name
-            if not discord.utils.get(ctx.guild.roles, name=gen_name) or \
-                    not discord.utils.get(ctx.guild.categories, name=gen_name):
+            if not Team.get(gen_name):  # If the team does not exist in the teams table
                 continue
             embed.add_field(name=team.name, value=f'#!add_me "your github username" "{team.name}"')
         if not embed.fields:
@@ -295,8 +298,15 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         g = Github(github_token)  # Logs into GitHub
         try:
             github = g.get_user(github_user)  # Tries to find the user on GitHub
-            role = discord.utils.get(guild.roles, name=gen_name)  # Finds the role created in get_all_githubs function
-
+            team: Team = Team.get(gen_name)
+            if team:
+                role = guild.get_role(team.role_id)  # Finds the team role if the team exists in the database
+            else:
+                role = discord.utils.get(guild.roles, name=gen_name)
+                # Finds the role created in get_all_githubs function
+            if not role:
+                return await guild_user.send(f"Couldn't find the role for `{gen_name}`, "
+                                             f"please contact an administrator")
             await guild_user.add_roles(role)  # Adds the role
             User.set(guild_user.id, gen_name, github_user)
             return github
@@ -304,12 +314,15 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             return None
 
     # Checks if the user has already submitted the same GitHub username for the same team
-    async def check_submitted(member, gen_name, github_user, channel):
+    async def check_submitted_validity(member, gen_name, github_user, channel):
         valid = True
         user = User.get(member.id, gen_name)
-        role = discord.utils.get(member.roles, name=gen_name)
         if not user:
             return valid
+        if user.team:
+            role = discord.utils.get(member.roles, id=user.team.role_id)
+        else:
+            role = discord.utils.get(member.roles, name=gen_name)
         if user.user_github == github_user:
             await channel.send(f'Your GitHub username `{github_user}` is already set for this team')
             valid = False if role else True  # If the role already exists, there is no need to add it again
@@ -367,20 +380,21 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
 
     # -------------------------------- Team management --------------------------------
 
-    async def manage_leader_voting(ctx, role, add=True):
-        category: discord.CategoryChannel = discord.utils.get(ctx.guild.categories, name=role.name)
+    async def manage_leader_voting(ctx, gen_name, add=True):
+        team: Team = Team.get(gen_name)
+        category: discord.CategoryChannel = discord.utils.get(ctx.guild.categories, id=team.category_id)
+
         # Check the team category
         if not category:
             return
-        voting_channel = None
-        # Find if there is voting
-        for channel in category.channels:
-            if channel.name != "leader-voting":
-                continue
-            voting_channel = channel
-        # If there is no voting, return
+        voting_channel_id = team.voting_id
+
+        if voting_channel_id == -1:  # if the voting channel doesn't exist
+            return
+        voting_channel = ctx.guild.get_channel(voting_channel_id)
         if not voting_channel:
             return
+
         messages = await voting_channel.history().flatten()
         mention_message = None
         # Find if there is a message that mentions the user
@@ -408,10 +422,19 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         role = await check_team_existence(ctx, team_name, ctx.guild.roles)
         if not role:
             return
-        if not await check_submitted(ctx.author, team_name, github_username, ctx.channel):
+
+        def check(m):
+            return m.author == ctx.author and m.channel == ctx.channel \
+                   and "a:yes" in m.content.lower().strip().replace(" ", "")
+
+        if not await check_submitted_validity(ctx.author, team_name, github_username, ctx.channel):
             # Checks if the user has already inputted his GitHub and if he has the role
             # If the user has the role and has already inputted the same GitHub name
-            return await ctx.send("Nothing to do here :)")
+            await ctx.send("If you are not in the Github team and would like to be added type: `a: yes`")
+            try:
+                await bot.wait_for('message', check=check, timeout=20)
+            except asyncio.TimeoutError:
+                return await ctx.send(ctx.author.mention + ", no actions have been performed on you")
 
         github_user = await add_github(ctx.guild, ctx.author, github_username, team_name)
         if github_user:
@@ -419,45 +442,61 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         else:
             await ctx.send("Invalid GitHub username.")
 
+        team: Team = Team.get(team_name)
         g = Github(github_token)
         org = g.get_organization(org_name)
-        team = org.get_team_by_slug(team_name)
-        if not team:
+        github_team = org.get_team(team.github_id)
+        if not github_team:
             return await ctx.send(ctx.author.mention + ", an error has occurred while adding you to the team.")
-        await add_membership(ctx.author, team_name, g, team)
+        await add_membership(ctx.author, team_name, g, github_team)
         await ctx.send("Done")
-        await manage_leader_voting(ctx, role)
+        await manage_leader_voting(ctx, team_name)
 
     @bot.command(brief="Removes you from a team you are a member of")
     async def remove_me(ctx, team_name):
         role = await check_team_existence(ctx, team_name, ctx.author.roles)
         if not role:
             return
+        team: Team = Team.get(team_name)
         await ctx.author.remove_roles(role)
         await ctx.send(ctx.author.mention + ", I have removed your role. Please wait...")
-        leader_role = discord.utils.get(ctx.author.roles, name='pl-' + team_name)
+        leader_role = discord.utils.get(ctx.author.roles, id=team.leader_role_id)
         if leader_role:
             await ctx.author.remove_roles(leader_role)
             await ctx.send(ctx.author.mention + ", I have removed your leadership role")
 
         g = Github(github_token)
         org = g.get_organization(org_name)
-        team = org.get_team_by_slug(team_name)
-        if not team:
+        github_team = org.get_team(team.github_id)
+        if not github_team:
             return await ctx.send(ctx.author.mention + ", couldn't find the team on GitHub")
         user = User.get(ctx.author.id, team_name)
         if not user:
             return await ctx.send(ctx.author.mention + ", couldn't find you in the database.")
         github_username = user.user_github
-        github_user = g.get_user(github_username)
-        team.remove_membership(github_user)
+        try:
+            github_user = g.get_user(github_username)
+            github_team.remove_membership(github_user)
 
-        await ctx.send(ctx.author.mention + ", I have removed you from the GitHub team")
-        await manage_leader_voting(ctx, role, add=False)
+            await ctx.send(ctx.author.mention + ", I have removed you from the GitHub team")
+        except UnknownObjectException:
+            await ctx.send("There was a problem finding you on GitHub, perhaps you have changed your username?")
+        await manage_leader_voting(ctx, team_name, add=False)
 
     # -------------------------------- Team creation --------------------------------
-    async def vote_for_leader(role, guild, overwrites, category):
+    async def vote_for_leader(gen_name, guild, category):
+        team: Team = Team.get(gen_name)
+        if not team:
+            return
+        role = guild.get_role(team.role_id)
+        # Only the team role members will be able to view the channel
+        overwrites = {role: discord.PermissionOverwrite(view_channel=True),
+                      guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+        voting_channel = discord.utils.get(guild.channels, name='leader-voting', category=category)
+        if voting_channel:
+            return
         voting_channel = await guild.create_text_channel("leader-voting", overwrites=overwrites, category=category)
+        Team.set_voting_channel(gen_name, voting_channel.id)
         await voting_channel.send("Vote for who you would like to be the project leader")
         for member in role.members:
             if member.bot:
@@ -477,8 +516,9 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 if member.bot:
                     await member.remove_roles(role)
 
-        if not discord.utils.get(guild.roles, name="pl-" + gen_name):  # Creates the leader role
-            await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
+        leader_role = discord.utils.get(guild.roles, name="pl-" + gen_name)
+        if not leader_role:  # Creates the leader role
+            leader_role = await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
 
         await role.edit(hoist=True)  # Makes the team role show in the members list
 
@@ -494,14 +534,13 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             for channel in category.channels:
                 if channel.name != "general":
                     continue
-                return channel
+                return channel, category, role, leader_role
         text_channel = await guild.create_text_channel("general", overwrites=overwrites, category=category)
         await guild.create_voice_channel("Collab room", overwrites=overwrites, category=category)
         await text_channel.send(role.mention + " LET'S GO!!")
         if not role.members:
-            return text_channel
-        await vote_for_leader(role, guild, overwrites, category)
-        return text_channel
+            return text_channel, category, role, leader_role
+        return text_channel, category, role, leader_role
 
     # To add users to a GitHub team
     async def add_membership(member, gen_name, github_client, team):
@@ -512,7 +551,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             github_user = github_client.get_user(github_user.user_github)
             team.add_membership(github_user, role="member")
         except UnknownObjectException:
-            await member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project')
+            await member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project, '
+                              f'perhaps you have changed your GitHub username?')
 
     async def create_org_team(gen_name, team_members, github_client, org):
         teams = org.get_teams()
@@ -553,24 +593,26 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         embed = discord.Embed(title=team.name)
         await text_channel.send(f'https://github.com/orgs/{org_name}/teams/{team.name}')
         await text_channel.send(f'https://github.com/{org_name}/{repo.name}')
-        await running_channel.send(f'@everyone a new team has been created!\n'
+        await running_channel.send(f'A new team has been created!\n'
                                    f'https://github.com/{org_name}/{repo.name}\n'
-                                   f'Please use `#!add_me "your Github username" "{team.name}"` to be added.`',
+                                   f'Please use `#!add_me "your Github username" "{team.name}"` to be added.',
                                    embed=embed)
 
     # The team creation process
     async def create_team(guild, gen_name):
 
-        text_channel = await create_category_channels(guild, gen_name)
-        role = discord.utils.get(guild.roles, name=gen_name)
+        text_channel, category, role, leader_role = await create_category_channels(guild, gen_name)
+
         team_members = role.members
 
         g = Github(github_token)
         org = g.get_organization(org_name)
-        team = await create_org_team(gen_name, team_members, g, org)
+        github_team = await create_org_team(gen_name, team_members, g, org)
 
-        repo = await create_repo(org, team, gen_name)
-        await notify_about_team(repo, team, text_channel)
+        repo = await create_repo(org, github_team, gen_name)
+        Team.set(gen_name, role.id, leader_role.id, category.id, text_channel.id, github_team.id, repo.id)
+        await notify_about_team(repo, github_team, text_channel)
+        await vote_for_leader(gen_name, guild, category)
 
     async def kick_member(member, reason):
         guild = member.guild
@@ -616,9 +658,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await ctx.send(ctx.author.mention + ", the idea name length must be less that 95 characters long")
             return await new_idea(ctx)
 
-        # Check if there is an idea team with the current idea
-        role = discord.utils.get(ctx.guild.roles, name=gen_name)
-        if role:
+        if Team.get(gen_name):
             await ctx.send(ctx.author.mention + ", this idea name already exists.")
             return await new_idea(ctx)
 
@@ -923,7 +963,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 return await channel.send("I can't find you in our server.")
 
             # Checking if the user has already submitted his username
-            if not await check_submitted(guild_user, gen_name, github_user, channel):
+            if not await check_submitted_validity(guild_user, gen_name, github_user, channel):
                 continue
 
             # Add the user's GitHub name to the GitHub channel and give the team role
@@ -947,5 +987,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await ctx.send(f'Unknown command: `{ctx.message.content}`')
         elif isinstance(error, discord.ext.commands.ExpectedClosingQuoteError):
             await ctx.send("Please close all the quotation marks")
+        elif isinstance(error, discord.ext.commands.MissingRequiredArgument):
+            await ctx.send("Missing arguments. Please use `#!help command_name`")
         else:
             raise error
