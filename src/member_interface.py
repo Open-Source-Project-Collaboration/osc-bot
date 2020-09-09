@@ -492,7 +492,9 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         # Only the team role members will be able to view the channel
         overwrites = {role: discord.PermissionOverwrite(view_channel=True),
                       guild.default_role: discord.PermissionOverwrite(view_channel=False)}
-
+        voting_channel = discord.utils.get(guild.channels, name='leader-voting', category=category)
+        if voting_channel:
+            return
         voting_channel = await guild.create_text_channel("leader-voting", overwrites=overwrites, category=category)
         Team.set_voting_channel(gen_name, voting_channel.id)
         await voting_channel.send("Vote for who you would like to be the project leader")

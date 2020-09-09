@@ -1,7 +1,15 @@
+from os import path
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from os import environ
+
+
+# Get .env config
+dotenv_path = path.join(path.dirname(__file__), '../.env')
+load_dotenv(dotenv_path)
 
 # Create sqlalchemy engine
 engine = None
