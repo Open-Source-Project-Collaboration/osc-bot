@@ -506,7 +506,13 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await voting_message.add_reaction(THUMBS_UP_EMOJI)
 
     async def create_category_channels(guild, gen_name):
-        role = discord.utils.get(guild.roles, name=gen_name)
+        team: Team = Team.get(gen_name)
+        if team:
+            role = guild.get_role(team.role_id)
+            leader_role = guild.get_role(team.role_id)
+        else:
+            role = discord.utils.get(guild.roles, name=gen_name)
+            leader_role = discord.utils.get(guild.roles, name="pl-" + gen_name)
 
         if not role:  # Creates the team role
             role = await guild.create_role(name=gen_name)
@@ -517,7 +523,6 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 if member.bot:
                     await member.remove_roles(role)
 
-        leader_role = discord.utils.get(guild.roles, name="pl-" + gen_name)
         if not leader_role:  # Creates the leader role
             leader_role = await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
 
