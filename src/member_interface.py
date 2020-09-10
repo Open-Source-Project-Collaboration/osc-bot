@@ -495,7 +495,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         voting_channel = discord.utils.get(guild.channels, name='leader-voting', category=category)
         if voting_channel:
             Team.set(team.team_name, team.role_id, team.leader_role_id, team.category_id,
-                     team.general_id, team.github_id, team.voting_id)
+                     team.general_id, team.github_id, voting_channel.id)
             return
         voting_channel = await guild.create_text_channel("leader-voting", overwrites=overwrites, category=category)
         Team.set_voting_channel(gen_name, voting_channel.id)
