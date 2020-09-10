@@ -853,8 +853,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                     f'''
                     {CHECK_MARK_EMOJI * voters_number}\n\n''' +
                     f'''Voting for {gen_name} has ended, **approved**!\n'''
-                    f'''Participants:\n{participants}\nPlease check your messages
-                    ''', embed=embed)
+                    f'Participants:\n{participants}\nPlease check your messages, the team will be created '
+                    f'if a sufficient number of voters reply to the DM with their GitHub usernames\n'
+                    f'Check `#!voting_info` to know how much time you have to reply with your GitHub usernames',
+                    embed=embed)
                 github_wait = int(Config.get('github-sleep-time'))
                 return await get_all_githubs(participants_list, gen_name, participants_message, github_wait)
 
@@ -974,7 +976,9 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 await channel.send("This username is not a valid Github username")
                 return
         if checked_ideas > 0:
-            return await channel.send("Done")
+            await channel.send("Done")
+            return await channel.send("The team will be created if a sufficient number of voters "
+                                      "reply with their GitHub usernames")
         else:
             return await channel.send("Nothing to do here :)")
 
