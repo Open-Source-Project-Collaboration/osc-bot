@@ -213,8 +213,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         teams = org.get_teams()
         embed = discord.Embed(title="Use the any of the following commands to add yourself to a specific team")
         for team in teams:
-            gen_name = team.name
-            if not Team.get(gen_name):  # If the team does not exist in the teams table
+            github_id = team.id
+            if not Team.get(github_id):  # If the team does not exist in the teams table
                 continue
             embed.add_field(name=team.name, value=f'#!add_me "your github username" "{team.name}"')
         if not embed.fields:

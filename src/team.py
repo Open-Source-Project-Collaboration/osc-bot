@@ -33,8 +33,12 @@ class Team(Base):
 
     # Static interface
     @staticmethod
-    def get(team_name):
-        team = session.query(Team).filter_by(team_name=team_name).first()
+    def get(team_name_or_github_id):
+        if isinstance(team_name_or_github_id, str):
+            team = session.query(Team).filter_by(team_name=team_name_or_github_id).first()
+        else:
+            assert isinstance(team_name_or_github_id, int)
+            team = session.query(Team).filter_by(github_id=team_name_or_github_id).first()
         return team if team else None
 
     @staticmethod
