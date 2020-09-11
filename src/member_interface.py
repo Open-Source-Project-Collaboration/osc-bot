@@ -11,11 +11,12 @@ from warn import Warn
 import discord.ext.commands.errors
 
 from github import Github, UnknownObjectException
+from github.Organization import Organization
 
 from datetime import datetime, timezone, timedelta
 import pytz
 
-from common_functions import get_gen_name, check_team_existence
+from common_functions import get_gen_name, check_team_existence, get_repo_by_id
 
 # Set up .env path
 dotenv_path = path.join(path.dirname(__file__), '../.env')
@@ -33,6 +34,9 @@ org_name = environ.get('ORG_NAME')
 # Bot data
 online_since_date = None
 utc = pytz.UTC
+
+# Class methods
+Organization.get_repo_by_id = get_repo_by_id
 
 
 # Setup function
@@ -95,18 +99,19 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         await ctx.send("Please wait...")
 
         g = Github(github_token)
-        org = g.get_organization(org_name)
+        org: Organization = g.get_organization(org_name)
         users = User.get_teams()  # The users in the database
         bot_channel_id = int(Config.get('bot-channel'))
         bot_channel = bot.get_channel(bot_channel_id)
 
         for user in users:
+            repo_id = user.team.repo_id
             gen_name = user.user_team
             status = "inactive"
 
             guild_user = ctx.guild.get_member(user.user_id)  # The user in the server
             role = ctx.guild.get_role(user.team.role_id)  # The team role
-            repo = org.get_repo(gen_name)  # The team repository
+            repo = org.get_repo_by_id(repo_id)  # The team repository
             stats_contributors = repo.get_stats_contributors()
             if not repo or not role or not guild_user or not stats_contributors:
                 continue
@@ -115,15 +120,17 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 if stat.author.name != user.user_github:
                     continue
                 for week in stat.weeks:
+                    if week.c < 1:  # If there were no commits in this week
+                        continue
                     current_utc = datetime.now(tz=timezone.utc)  # The current time in UTC
                     commit_start_week = utc.localize(week.w)  # The commit start of the week (Sunday)
                     time_difference = current_utc - commit_start_week
                     day_difference = time_difference.days  # The time difference in days
-                    if day_difference < 13:  # If the user has committed in the past two weeks, continue
+                    if day_difference < 16:  # If the user has committed in the past two weeks, continue
                         status = 'active'
             # Check the status
             if status == 'inactive':
-                await warn_member(guild_user, f'Not contributing in {gen_name} for more than two weeks')
+                await warn_member(guild_user, f'Being inactive in the {gen_name} team')
 
             await bot_channel.send(f'Name: {guild_user.mention} | Team: **{gen_name}** | Status: **{status}**')
 
@@ -213,8 +220,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         teams = org.get_teams()
         embed = discord.Embed(title="Use the any of the following commands to add yourself to a specific team")
         for team in teams:
-            gen_name = team.name
-            if not Team.get(gen_name):  # If the team does not exist in the teams table
+            github_id = team.id
+            if not Team.get(github_id):  # If the team does not exist in the teams table
                 continue
             embed.add_field(name=team.name, value=f'#!add_me "your github username" "{team.name}"')
         if not embed.fields:
@@ -506,7 +513,13 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await voting_message.add_reaction(THUMBS_UP_EMOJI)
 
     async def create_category_channels(guild, gen_name):
-        role = discord.utils.get(guild.roles, name=gen_name)
+        team: Team = Team.get(gen_name)
+        if team:
+            role = guild.get_role(team.role_id)
+            leader_role = guild.get_role(team.role_id)
+        else:
+            role = discord.utils.get(guild.roles, name=gen_name)
+            leader_role = discord.utils.get(guild.roles, name="pl-" + gen_name)
 
         if not role:  # Creates the team role
             role = await guild.create_role(name=gen_name)
@@ -517,7 +530,6 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 if member.bot:
                     await member.remove_roles(role)
 
-        leader_role = discord.utils.get(guild.roles, name="pl-" + gen_name)
         if not leader_role:  # Creates the leader role
             leader_role = await guild.create_role(name="pl-" + gen_name, color=discord.Colour(16711680))
 
