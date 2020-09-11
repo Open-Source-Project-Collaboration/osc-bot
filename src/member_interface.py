@@ -11,12 +11,11 @@ from warn import Warn
 import discord.ext.commands.errors
 
 from github import Github, UnknownObjectException
-from github.Organization import Organization
 
 from datetime import datetime, timezone, timedelta
 import pytz
 
-from common_functions import get_gen_name, check_team_existence, get_repo_by_id
+from common_functions import get_gen_name, check_team_existence
 
 # Set up .env path
 dotenv_path = path.join(path.dirname(__file__), '../.env')
@@ -34,9 +33,6 @@ org_name = environ.get('ORG_NAME')
 # Bot data
 online_since_date = None
 utc = pytz.UTC
-
-# Class methods
-Organization.get_repo_by_id = get_repo_by_id
 
 
 # Setup function
@@ -99,7 +95,6 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         await ctx.send("Please wait...")
 
         g = Github(github_token)
-        org: Organization = g.get_organization(org_name)
         users = User.get_teams()  # The users in the database
         bot_channel_id = int(Config.get('bot-channel'))
         bot_channel = bot.get_channel(bot_channel_id)
@@ -111,7 +106,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
 
             guild_user = ctx.guild.get_member(user.user_id)  # The user in the server
             role = ctx.guild.get_role(user.team.role_id)  # The team role
-            repo = org.get_repo_by_id(repo_id)  # The team repository
+            repo = g.get_repo(repo_id)  # The team repository
             stats_contributors = repo.get_stats_contributors()
             if not repo or not role or not guild_user or not stats_contributors:
                 continue
