@@ -5,6 +5,7 @@ from config import Config
 from team import Team
 
 from github import Github
+from github.Repository import Repository
 
 
 async def get_gen_name(idea_name):
@@ -75,3 +76,13 @@ async def delete_entire_team(bot, ctx: discord, team_name, github_token, org_nam
         await ctx.send(f'Deleted the `{team_name}` team')
     except discord.NotFound:
         return
+
+
+def get_repo_by_id(self, repo_id):
+    assert isinstance(repo_id, int), repo_id
+    headers, data = self._requester.requestJsonAndCheck(
+        "GET", "/repositories/" + str(repo_id)
+    )
+    return Repository(
+        self._requester, headers, data, completed=True
+    )
