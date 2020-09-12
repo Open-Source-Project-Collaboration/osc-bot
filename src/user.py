@@ -38,7 +38,7 @@ class User(Base):
 
     @staticmethod
     def get_team(user_team):
-        team = session.query(User).filter_by(user_team=user_team).first()
+        team = session.query(User).filter_by(user_team=user_team).all()
         return team if team else None
 
     @staticmethod
