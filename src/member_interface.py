@@ -168,7 +168,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
     @bot.command(brief="Shows all teams members and their GitHub usernames")
     async def list_members(ctx, team_name=''):
         if team_name:  # If the user provided a team name
-            users = [User.get_team(team_name)]
+            users = User.get_team(team_name)
             title_name = team_name
         else:  # If the user didn't provide a team name, show all teams
             users = User.get_teams()
@@ -180,8 +180,6 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
 
         if not users:  # Happens when get_teams() function returns None
             return await ctx.send("There are currently no members in teams.")
-        elif users == [None]:  # Happens when get_team() function returns None
-            return await ctx.send("There is no team with this name.")
 
         for user in users:
             guild = ctx.guild
