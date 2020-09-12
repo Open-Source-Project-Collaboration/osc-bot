@@ -257,7 +257,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         if votes_number < 60:
             return (80 - votes_number) / 100
         else:
-            return 20/100
+            return 20 / 100
 
     # Continue asking for Github usernames if the bot goes down
     async def continue_githubs(gen_name, participants_message):
@@ -267,14 +267,19 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         # message
         overview_channel_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_channel_id)
-        await overview_channel.send(f'Voters for `{gen_name}` have `{str(days)}` day(s), `{str(round(hours_show))}` '
-                                    f'hour(s), `{str(round(minutes_show))}` minutes and `{str(round(seconds_show))}` '
-                                    f'seconds to send their GitHub usernames')
         users = participants_message.mentions
+        required_percentage = await get_github_percentage(len(users))
         participants_list = []
         for user in users:
             if not discord.utils.get(user.roles, name=gen_name):  # If the mentioned user doesn't have the role
                 participants_list.append(user)
+        current_percentage = (len(users) - len(participants_list)) / len(users)
+        await overview_channel.send(f'Voters for `{gen_name}` have `{str(days)}` day(s), `{str(round(hours_show))}` '
+                                    f'hour(s), `{str(round(minutes_show))}` minutes and `{str(round(seconds_show))}` '
+                                    f'seconds to send their GitHub usernames\n'
+                                    f'`{required_percentage * 100}%` of the voters must reply to my DM with their '
+                                    f'Github username in order to create the team.\n'
+                                    f'`{current_percentage * 100}%` of the voters have replied.')
         await get_all_githubs(participants_list, gen_name, participants_message, time_to_wait)
 
     # Continue voting if the bot goes down
