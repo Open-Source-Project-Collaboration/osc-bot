@@ -145,7 +145,6 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         time_to_wait = int(Config.get('time-to-wait'))
         req_votes = Config.get('required-votes')
         github_sleep_time = int(Config.get('github-sleep-time'))
-        github_required_percentage = Config.get('github-required-percentage')
 
         voting_days = str(time_to_wait // (24 * 60 * 60))
         voting_hours, voting_minutes, voting_seconds = await format_seconds(time_to_wait)
@@ -161,8 +160,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                        f'`{voting_minutes}` '
                        f'minute(s) and `{voting_seconds}` second(s)).\n' +
                        f'The required votes for each idea are `{req_votes}` votes.\n' +
-                       f'`{float(github_required_percentage) * 100}`% of the voters must reply to the bot DM ' +
-                       "with their github username to approve the idea.\n" +
+                       f'The team will get created if enough voters reply to the bot DM with their Github username\n' +
                        f'The voters are given `{github_days}` day(s) (`{github_hours}` hour(s), '
                        f'`{github_minutes}` minute(s) and `{github_seconds}` second(s)) '
                        f'to reply with their Github usernames.')
@@ -255,6 +253,12 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             seconds = 0
         return days, seconds
 
+    async def get_github_percentage(votes_number):
+        if votes_number < 60:
+            return (80 - votes_number) / 100
+        else:
+            return 20 / 100
+
     # Continue asking for Github usernames if the bot goes down
     async def continue_githubs(gen_name, participants_message):
         days, seconds = await get_time_to_wait(participants_message, voting=False)
@@ -263,14 +267,19 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         # message
         overview_channel_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_channel_id)
-        await overview_channel.send(f'Voters for `{gen_name}` have `{str(days)}` day(s), `{str(round(hours_show))}` '
-                                    f'hour(s), `{str(round(minutes_show))}` minutes and `{str(round(seconds_show))}` '
-                                    f'seconds to send their GitHub usernames')
         users = participants_message.mentions
+        required_percentage = await get_github_percentage(len(users))
         participants_list = []
         for user in users:
             if not discord.utils.get(user.roles, name=gen_name):  # If the mentioned user doesn't have the role
                 participants_list.append(user)
+        current_percentage = (len(users) - len(participants_list)) / len(users)
+        await overview_channel.send(f'Voters for `{gen_name}` have `{str(days)}` day(s), `{str(round(hours_show))}` '
+                                    f'hour(s), `{str(round(minutes_show))}` minutes and `{str(round(seconds_show))}` '
+                                    f'seconds to send their GitHub usernames\n'
+                                    f'`{required_percentage * 100}%` of the voters must reply to my DM with their '
+                                    f'Github username in order to create the team.\n'
+                                    f'`{current_percentage * 100}%` of the voters have replied.')
         await get_all_githubs(participants_list, gen_name, participants_message, time_to_wait)
 
     # Continue voting if the bot goes down
@@ -764,7 +773,6 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
 
     # Used after an idea gets enough votes
     async def get_all_githubs(participants, gen_name, message, waiting_time):
-        github_required_percentage = float(Config.get('github-required-percentage'))
         guild = message.guild
         role = discord.utils.get(guild.roles, name=gen_name)  # Tries to find if a role already exists
         # This happens when the bot is turned off during the GitHub gathering process
@@ -776,6 +784,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 await get_github(user, gen_name)  # Asks each user for their Github
             else:
                 await user.add_roles(role)  # Adds the role to the bot
+
+        github_required_percentage = await get_github_percentage(len(participants))
 
         await asyncio.sleep(waiting_time)
         await warn_inactives(message, gen_name)
