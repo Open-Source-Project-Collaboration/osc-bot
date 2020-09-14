@@ -75,3 +75,16 @@ async def delete_entire_team(bot, ctx: discord, team_name, github_token, org_nam
         await ctx.send(f'Deleted the `{team_name}` team')
     except discord.NotFound:
         return
+
+
+async def send_to_finished(bot, github_token, org_name, repo_id):
+    g = Github(github_token)
+    repo = g.get_repo(repo_id)
+    if not repo:
+        return
+
+    gen_name = repo.name
+
+    finished_channel_id = int(Config.get("finished-channel"))
+    finished_channel = bot.get_channel(finished_channel_id)  # The channel to post the finished project
+    await finished_channel.send(f'https://github.com/{org_name}/{gen_name}')
