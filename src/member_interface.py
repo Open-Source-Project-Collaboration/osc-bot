@@ -15,7 +15,7 @@ from github import Github, UnknownObjectException
 from datetime import datetime, timezone, timedelta
 import pytz
 
-from common_functions import get_gen_name, check_team_existence
+from common_functions import get_gen_name, check_team_existence, clear_messages_channel
 
 # Set up .env path
 dotenv_path = path.join(path.dirname(__file__), '../.env')
@@ -744,23 +744,38 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                                         ", an error has occurred while processing one of your ideas")
 
     # Asks user for github
-    async def get_github(voter, gen_name):
+    async def get_github(voter, gen_name, forbidden=False):
         embed = discord.Embed(title=gen_name)
         embed.add_field(name="Idea", value=gen_name)
         embed.add_field(name="Guild ID", value=voter.guild.id)
-        message = await voter.send('Hello!\nWe noticed that you have voted for the following idea:\n' +
-                                   'Please send me your GitHub username so I can add you to the team.\n' +
-                                   "If you receive no reply, then the bot is down or the idea team "
-                                   "has already been created.\n" +
-                                   "If you accidentally send someone else's username, simply re-send your username",
-                                   embed=embed)
-        dm_channel = message.channel
-        messages = await dm_channel.history().flatten()
-        # Clean up Bot messages sent before it was rebooted
-        for message in messages:
-            if utc.localize(message.created_at) < online_since_date and message.author.bot and message.embeds:
-                # If it was a message sent before the bot rebooted, delete it
-                await message.delete()
+        send_channel = voter
+        message_content = f'Hello!\nWe noticed that you have ' \
+                          f'voted for the following idea:\n' + \
+                          'Please send me your GitHub username so I can add you to the team.\n'
+        if forbidden:
+            print(f'Could not send messages to {voter.name}. Sending on failed messages channel')
+            messages_channel_id = int(Config.get('messages-channel'))
+            messages_channel = bot.get_channel(messages_channel_id)
+            message_content = f"Hello {voter.mention}! We have noticed that you have voted for the following idea:\n" \
+                              f"However we were not able to message you privately; please send your Github username " \
+                              f"here so I can add you to the team."
+            send_channel = messages_channel
+        try:
+            message = await send_channel.send(message_content +
+                                              "\nIf you receive no reply, then the bot is down or the idea team "
+                                              "has already been created.\n" +
+                                              "If you accidentally send someone else's username, "
+                                              "simply re-send your username",
+                                              embed=embed)
+            dm_channel = message.channel
+            messages = await dm_channel.history().flatten()
+            # Clean up Bot messages sent before it was rebooted
+            for message in messages:
+                if utc.localize(message.created_at) < online_since_date and message.author.bot and message.embeds:
+                    # If it was a message sent before the bot rebooted, delete it
+                    await message.delete()
+        except discord.Forbidden:
+            return await get_github(voter, gen_name, forbidden=True)
 
     # Notifies the participants about the idea processing results
     async def notify_voters(participants_message, gen_name):
@@ -831,6 +846,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             await message.delete()
 
         await notify_voters(message, gen_name)
+        await clear_messages_channel(bot, gen_name)
 
     # Watches a vote for 14 days
     async def wait_for_votes(message_id, gen_name, trials):
@@ -967,7 +983,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
     @bot.event
     async def on_message(message):
         channel = message.channel
-        if channel.type != discord.ChannelType.private:  # If it is not a DM Channel
+        messages_channel_id = int(Config.get("messages-channel"))
+        messages_channel = bot.get_channel(messages_channel_id)
+        if channel.type != discord.ChannelType.private and channel != messages_channel:
+            # If it is not a DM channel nor the failed messages channel
             return await bot.process_commands(message)  # Process the commands normally
 
         if message.author.bot:
