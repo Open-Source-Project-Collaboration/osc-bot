@@ -77,13 +77,12 @@ async def delete_entire_team(bot, ctx: discord, team_name, github_token, org_nam
         return
 
 
-async def send_to_finished(bot, github_token, repo_id):
+async def send_to_finished(bot, github_token, org_name, repo_id):
     g = Github(github_token)
     repo = g.get_repo(repo_id)
     if not repo:
         return
 
-    org_name = repo.organization.name
     gen_name = repo.name
 
     finished_channel_id = int(Config.get("finished-channel"))
