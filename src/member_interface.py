@@ -754,7 +754,11 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         for member in participants_message.mentions:
             if member.bot:
                 continue
-            message = await member.send(f'Processing the `{gen_name}` idea has ended. Please check <#{overview_id}>')
+            try:
+                message = await member.send(f'Processing the `{gen_name}` idea has ended. '
+                                            f'Please check <#{overview_id}>')
+            except discord.Forbidden:
+                continue
         if not message:
             return
         dm_channel = message.channel
@@ -787,7 +791,9 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             else:
                 await user.add_roles(role)  # Adds the role to the bot
 
-        github_required_percentage = await get_github_percentage(len(participants))
+        all_participants = message.mentions
+
+        github_required_percentage = await get_github_percentage(len(all_participants))
 
         await asyncio.sleep(waiting_time)
         await warn_inactives(message, gen_name)
