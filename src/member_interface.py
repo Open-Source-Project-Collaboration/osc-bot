@@ -269,6 +269,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         required_percentage = await get_github_percentage(len(users))
         participants_list = []
         for user in users:
+            if isinstance(user, discord.User):
+                continue
             if not discord.utils.get(user.roles, name=gen_name):  # If the mentioned user doesn't have the role
                 participants_list.append(user)
         current_percentage = (len(users) - len(participants_list)) / len(users)
