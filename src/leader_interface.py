@@ -1,9 +1,10 @@
-from common_functions import delete_entire_team
-from config import Config
 import discord
 from asyncio import TimeoutError
 
 from member_interface import github_token, org_name
+from common_functions import delete_entire_team, send_to_finished
+
+from team import Team
 
 
 def setup_leader_interface(bot):
@@ -16,12 +17,15 @@ def setup_leader_interface(bot):
     @bot.command(hidden=True, brief="Leader command")
     async def mark_as_finished(ctx):
         channel = ctx.channel
-        category = channel.category
-        gen_name = category.name
-        leader_role = discord.utils.get(ctx.author.roles, name='pl-' + gen_name)
+        category: discord.CategoryChannel = channel.category
+        team: Team = Team.get(category_id=category.id)
+        if not team:
+            return await you_are_not_leader(ctx)
+        leader_role = discord.utils.get(ctx.author.roles, id=team.leader_role_id)
         # Checks if the user has the leader role
         if not leader_role:
             return await you_are_not_leader(ctx)
+        gen_name = team.team_name
 
         def check(m):  # The predicate that checks the confirm message
             return m.channel == channel and m.author == ctx.author and m.content.lower() == 'yes'
@@ -35,9 +39,7 @@ def setup_leader_interface(bot):
         else:  # If the user replied with a yes
             await delete_entire_team(bot, ctx, gen_name, github_token, org_name)
 
-            finished_channel_id = int(Config.get("finished-channel"))  # The channel to post the finished project
-            finished_channel = bot.get_channel(finished_channel_id)
-            await finished_channel.send(f'https://github.com/{org_name}/{gen_name}')
+        await send_to_finished(bot, github_token, team.repo_id)
 
     @bot.command(hidden=True, brief="Leader command")
     async def lhelp(ctx):
