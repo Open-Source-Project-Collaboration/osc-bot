@@ -15,7 +15,7 @@ from github import Github, UnknownObjectException
 from datetime import datetime, timezone, timedelta
 import pytz
 
-from common_functions import get_gen_name, check_team_existence, clear_messages_channel
+from common_functions import get_gen_name, check_team_existence, clear_messages_channel, get_github_user_by_id
 
 # Set up .env path
 dotenv_path = path.join(path.dirname(__file__), '../.env')
@@ -112,7 +112,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 continue
 
             for stat in stats_contributors:
-                if stat.author.name != user.user_github:
+                if stat.author.id != user.user_github_id:
                     continue
                 for week in stat.weeks:
                     if week.c < 1:  # If there were no commits in this week
@@ -188,9 +188,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 continue
             username = guild_user.name
             role = discord.utils.get(guild_user.roles, id=user.team.role_id)
+            github_user = get_github_user_by_id(github_token, user.user_github_id)
 
             teams_str += "\n" + user.team.team_name
-            github_username = user.user_github
+            github_username = github_user.name
             users_str += "\n" + username
             githubs_str += "\n" + github_username
             if not role:
@@ -321,23 +322,28 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 except discord.Forbidden:
                     return "Failed"
             await guild_user.add_roles(role)  # Adds the role
-            User.set(guild_user.id, gen_name, github_user)
+            User.set(guild_user.id, gen_name, github_user, github.id)
             return github
         except UnknownObjectException:  # If the user's GitHub was not found
             return None
 
     # Checks if the user has already submitted the same GitHub username for the same team
-    async def check_submitted_validity(member, gen_name, github_user, channel):
+    async def check_submitted_validity(member, gen_name, github_username, channel):
         valid = True
-        user = User.get(member.id, gen_name)
+        user: User = User.get(member.id, gen_name)
         if not user:
             return valid
         if user.team:
             role = discord.utils.get(member.roles, id=user.team.role_id)
         else:
             role = discord.utils.get(member.roles, name=gen_name)
-        if user.user_github == github_user:
-            await channel.send(f'Your GitHub username `{github_user}` is already set for this team')
+        try:
+            g = Github(github_token)
+            github_user = g.get_user(github_username)
+        except UnknownObjectException:
+            return await channel.send("Invalid Github username.")
+        if user.user_github_id == github_user.id:
+            await channel.send(f'Your GitHub username `{github_username}` is already set for this team')
             valid = False if role else True  # If the role already exists, there is no need to add it again
         else:
             await channel.send("Replacing your GitHub username...")
@@ -463,7 +469,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         github_team = org.get_team(team.github_id)
         if not github_team:
             return await ctx.send(ctx.author.mention + ", an error has occurred while adding you to the team.")
-        await add_membership(ctx.author, team_name, g, github_team)
+        await add_membership(ctx.author, team_name, github_team)
         await ctx.send("Done")
         await manage_leader_voting(ctx, team_name)
 
@@ -485,12 +491,12 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         github_team = org.get_team(team.github_id)
         if not github_team:
             return await ctx.send(ctx.author.mention + ", couldn't find the team on GitHub")
-        user = User.get(ctx.author.id, team_name)
+        user: User = User.get(ctx.author.id, team_name)
         if not user:
             return await ctx.send(ctx.author.mention + ", couldn't find you in the database.")
-        github_username = user.user_github
+        github_id = user.user_github_id
         try:
-            github_user = g.get_user(github_username)
+            github_user = get_github_user_by_id(github_token, github_id)
             github_team.remove_membership(github_user)
 
             await ctx.send(ctx.author.mention + ", I have removed you from the GitHub team")
@@ -564,12 +570,12 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         return text_channel, category, role, leader_role
 
     # To add users to a GitHub team
-    async def add_membership(member, gen_name, github_client, team):
-        github_user = User.get(member.id, gen_name)
-        if not github_user:
+    async def add_membership(member, gen_name, team):
+        user: User = User.get(member.id, gen_name)
+        if not user:
             return
         try:
-            github_user = github_client.get_user(github_user.user_github)
+            github_user = get_github_user_by_id(github_token, user.user_github_id)
             team.add_membership(github_user, role="member")
         except UnknownObjectException:
             try:
@@ -578,7 +584,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             except discord.Forbidden:
                 return
 
-    async def create_org_team(gen_name, team_members, github_client, org):
+    async def create_org_team(gen_name, team_members, org):
         teams = org.get_teams()
         if teams:  # If there are teams in the organization
             for team in teams:
@@ -593,7 +599,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             return team
 
         for member in team_members:
-            await add_membership(member, gen_name, github_client, team)
+            await add_membership(member, gen_name, team)
 
         return team
 
@@ -631,7 +637,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
 
         g = Github(github_token)
         org = g.get_organization(org_name)
-        github_team = await create_org_team(gen_name, team_members, g, org)
+        github_team = await create_org_team(gen_name, team_members, org)
 
         repo = await create_repo(org, github_team, gen_name)
         Team.set(gen_name, role.id, leader_role.id, category.id, text_channel.id, github_team.id, repo.id)
