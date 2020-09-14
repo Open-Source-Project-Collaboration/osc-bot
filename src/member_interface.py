@@ -766,6 +766,8 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
     async def warn_inactives(participants_message, gen_name):
         voters = participants_message.mentions
         for voter in voters:
+            if isinstance(voter, discord.User):
+                continue
             role = discord.utils.get(voter.roles, name=gen_name)
             if role:
                 continue
