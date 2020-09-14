@@ -88,3 +88,16 @@ async def send_to_finished(bot, github_token, org_name, repo_id):
     finished_channel_id = int(Config.get("finished-channel"))
     finished_channel = bot.get_channel(finished_channel_id)  # The channel to post the finished project
     await finished_channel.send(f'https://github.com/{org_name}/{gen_name}')
+
+
+async def clear_messages_channel(bot, gen_name):
+    messages_channel_id = int(Config.get('messages-channel'))
+    messages_channel = bot.get_channel(messages_channel_id)
+    messages = await messages_channel.history().flatten()
+    for message in messages:
+        if not message.embeds or not message.author.bot:
+            continue
+        embed = discord.utils.get(message.embeds, title=gen_name)
+        if not embed:
+            continue
+        await message.delete()
