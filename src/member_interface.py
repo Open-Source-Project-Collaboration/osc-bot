@@ -1010,9 +1010,12 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 continue
 
             # Add the user's GitHub name to the GitHub channel and give the team role
-            if await add_github(guild, guild_user, github_user, gen_name):
+            user = await add_github(guild, guild_user, github_user, gen_name)
+            if user and user != "Failed":
                 await channel.send(f'Thank you! I am currently giving you the `{gen_name}` role...')
                 checked_ideas += 1
+            elif user and user == "Failed":
+                await channel.send(f"Could not find the role for `{gen_name}`, please contact an administrator")
             else:
                 await channel.send("This username is not a valid Github username")
                 return
