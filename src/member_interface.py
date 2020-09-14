@@ -317,8 +317,6 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 # Finds the role created in get_all_githubs function
             if not role:
                 try:
-                    await guild_user.send(f"Couldn't find the role for `{gen_name}`, "
-                                          f"please contact an administrator")
                     return "Failed"
                 except discord.Forbidden:
                     return "Failed"
@@ -826,9 +824,14 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         github_required_percentage = await get_github_percentage(len(all_participants))
 
         await asyncio.sleep(waiting_time)
-        await warn_inactives(message, gen_name)
         overview_id = int(Config.get('overview-channel'))
         overview_channel = bot.get_channel(overview_id)
+        if not role.members:
+            await overview_channel.send(f"An error has occurred while processing the `{gen_name}` idea. "
+                                        f"The bot could not find the team role, idea cancelled.")
+            return await message.delete()
+
+        await warn_inactives(message, gen_name)
         # If the required percentage or more replied with their GitHub accounts and got their roles added
         if len(role.members) >= github_required_percentage * len(message.mentions):
             await overview_channel.send(f'More than {str(github_required_percentage * 100)}% ' +
@@ -1034,7 +1037,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 await channel.send(f'Thank you! I am currently giving you the `{gen_name}` role...')
                 checked_ideas += 1
             elif user and user == "Failed":
-                await channel.send(f"Could not find the role for `{gen_name}`, please contact an administrator")
+                return await channel.send(f"Could not find the role for `{gen_name}`, please contact an administrator")
             else:
                 await channel.send("This username is not a valid Github username")
                 return
