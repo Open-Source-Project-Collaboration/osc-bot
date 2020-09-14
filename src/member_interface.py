@@ -316,8 +316,12 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 role = discord.utils.get(guild.roles, name=gen_name)
                 # Finds the role created in get_all_githubs function
             if not role:
-                return await guild_user.send(f"Couldn't find the role for `{gen_name}`, "
-                                             f"please contact an administrator")
+                try:
+                    await guild_user.send(f"Couldn't find the role for `{gen_name}`, "
+                                          f"please contact an administrator")
+                    return "Failed"
+                except discord.Forbidden:
+                    return "Failed"
             await guild_user.add_roles(role)  # Adds the role
             User.set(guild_user.id, gen_name, github_user)
             return github
@@ -448,8 +452,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
                 return await ctx.send(ctx.author.mention + ", no actions have been performed on you")
 
         github_user = await add_github(ctx.guild, ctx.author, github_username, team_name)
-        if github_user:
+        if github_user and github_user != "Failed":
             await ctx.send(f'Thank you! I am giving you the `{team_name}` role...')
+        elif github_user and github_user == "Failed":
+            await ctx.send(f"Couldn't find the role for `{team_name}, please contact an administrator`")
         else:
             await ctx.send("Invalid GitHub username.")
 
@@ -568,8 +574,11 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             github_user = github_client.get_user(github_user.user_github)
             team.add_membership(github_user, role="member")
         except UnknownObjectException:
-            await member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project, '
-                              f'perhaps you have changed your GitHub username?')
+            try:
+                await member.send(f'There has been a problem adding you to the GitHub team in the `{gen_name}` project,'
+                                  f' perhaps you have changed your GitHub username?')
+            except discord.Forbidden:
+                return
 
     async def create_org_team(gen_name, team_members, github_client, org):
         teams = org.get_teams()
@@ -640,7 +649,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         await guild.kick(member, reason=reason)
         await bot_channel.send(f'{member.mention} has been kicked.\nReason: `{reason}`')
         Warn.delete(member.id)
-        await member.send(f'You have been kicked from our server.\nReason: `{reason}`')
+        try:
+            await member.send(f'You have been kicked from our server.\nReason: `{reason}`')
+        except discord.Forbidden:
+            return
 
     async def warn_member(member, reason):
         Warn.warn(member.id)
@@ -649,7 +661,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         await bot_channel.send(f'{member.mention} has been warned.\nReason: `{reason}`')
         if Warn.warnings(member.id) >= 3:
             await kick_member(member, "Reaching 3 or more warnings")
-        await member.send(f'You have been warned.\nReason: `{reason}`')
+        try:
+            await member.send(f'You have been warned.\nReason: `{reason}`')
+        except discord.Forbidden:
+            return
 
     # -------------------------------- Voting logic --------------------------------
     # Proposes a new idea to idea channel
