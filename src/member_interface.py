@@ -747,7 +747,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         embed.add_field(name="Idea", value=gen_name)
         embed.add_field(name="Guild ID", value=voter.guild.id)
         send_channel = voter
-        message_content = f'Hello!\nWe noticed that you have ' \
+        message_content = f'Hello {voter.mention}!\nWe noticed that you have ' \
                           f'voted for the following idea:\n' + \
                           'Please send me your GitHub username so I can add you to the team.\n'
         if forbidden:
@@ -1005,10 +1005,10 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
         github_user = username_message.content
 
         await channel.send("Hey there, please wait...")
-        for message in messages:
-            if not message.embeds:
+        for m in messages:
+            if not m.embeds or message.author not in m.mentions:
                 continue
-            embed = message.embeds[0]
+            embed = m.embeds[0]
             gen_name = embed.title  # Gets the idea name from the message sent to user
 
             for field in embed.fields:
