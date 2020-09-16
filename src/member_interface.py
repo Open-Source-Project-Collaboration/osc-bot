@@ -171,8 +171,12 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             users = User.get_team(team_name)
             title_name = team_name
         else:  # If the user didn't provide a team name, show all teams
+            if not ctx.author.guild_permissions.administrator:
+                return await ctx.send(ctx.author.mention + ', only admins can list all the members, '
+                                                           'please use `#!list_members "team_name"`')
             users = User.get_teams()
             title_name = "Current users in teams"
+        await ctx.send("Please wait...")
         users_str = ''
         teams_str = ''
         githubs_str = ''
