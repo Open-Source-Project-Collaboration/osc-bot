@@ -1,7 +1,7 @@
 from sqlalchemy.orm import relationship
 
 from db import Base, session, engine
-from sqlalchemy import Column, String, Integer, Numeric, ForeignKey
+from sqlalchemy import Column, String, Integer, BigInteger, ForeignKey
 
 
 # The user model: a user can have multiple GitHub usernames for different teams but one GitHub username for the same
@@ -11,17 +11,19 @@ class User(Base):
 
     # Fields
     unique_id = Column(Integer, primary_key=True)
-    user_id = Column(Numeric)
+    user_id = Column(BigInteger)
     user_team = Column(String, ForeignKey("teams.team_name"))
-    user_github = Column(String)
+    user_github = Column(String)  # To be deleted
+    user_github_id = Column(BigInteger)  # Use this in the code
 
     team = relationship("Team", back_populates="users")
 
     # Constructor and str
-    def __init__(self, user_id, user_team, user_github):
+    def __init__(self, user_id, user_team, user_github, user_github_id):
         self.user_id = user_id
         self.user_team = user_team
         self.user_github = user_github
+        self.user_github_id = user_github_id
 
     def __repr__(self):
         return f'<User(user_id={str(self.user_id)}, user_team={self.user_team}, user_github={self.user_github})>'
@@ -42,25 +44,26 @@ class User(Base):
         return team if team else None
 
     @staticmethod
-    def set(user_id, user_team, user_github):
+    def set(user_id, user_team, user_github, user_github_id):
         user = User.get(user_id, user_team)
 
         if user:
             user.user_team = user_team
             user.user_github = user_github
+            user.user_github_id = user_github_id
         else:
-            user = User(user_id, user_team, user_github)
+            user = User(user_id, user_team, user_github, user_github_id)
             session.add(user)
 
         session.commit()
 
     @staticmethod
-    def set_init(user_id, user_team, user_github):
+    def set_init(user_id, user_team, user_github, user_github_id):
         user = User.get(user_id, user_team)
         if user:
             return
         else:
-            User.set(user_id, user_team, user_github)
+            User.set(user_id, user_team, user_github, user_github_id)
 
     @staticmethod
     def delete(user_id, user_team):

@@ -5,6 +5,8 @@ from config import Config
 from team import Team
 
 from github import Github
+from github.NamedUser import NamedUser
+from github.Requester import Requester
 
 
 async def get_gen_name(idea_name):
@@ -101,3 +103,15 @@ async def clear_messages_channel(bot, gen_name):
         if not embed:
             continue
         await message.delete()
+
+
+def get_github_user_by_id(github_token, user_id: int):
+    requester = Requester(github_token, None, None, "https://api.github.com", 15, None, None, "PyGithub/Python", 30,
+                          True, None)
+    assert isinstance(user_id, (int, type(None)))
+    headers, data = requester.requestJsonAndCheck(
+        "GET", "/user/" + str(user_id)
+    )
+    return NamedUser(
+        requester, headers, data, completed=True
+    )

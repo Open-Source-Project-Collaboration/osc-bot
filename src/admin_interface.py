@@ -4,6 +4,7 @@ from team import Team
 from warn import Warn
 
 import discord
+from github import Github, UnknownObjectException
 
 from common_functions import delete_entire_team
 from member_interface import github_token, org_name
@@ -238,12 +239,24 @@ def setup_admin_interface(bot):
         except ValueError:
             return await ctx.send("Please mention a member to show their warnings")
 
-    @bot.command(hidden=True, brief="Sets a user to a team")
-    async def set_team(ctx, member_id, team_name, github_username):
+    @bot.command(hidden=True, brief="Sets the users github ids according to their github usernames")  # For migrating db
+    async def set_users_ids(ctx):
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
 
-        if not ctx.guild.get_member(member_id):
-            return await ctx.send("The specified user is not in the server")
-
-        User.set(member_id, team_name, github_username)
+        await ctx.send("Please wait...")
+        users = User.get_teams()
+        g = Github(github_token)
+        limit = len(users)
+        i = 1
+        for user in users:
+            await ctx.send(f"Setting the Github id of user ({i}/{limit})")
+            try:
+                github_user = g.get_user(user.user_github)
+                User.set(user.user_id, user.user_team, user.user_github, github_user.id)
+                await ctx.send("Success!")
+            except UnknownObjectException:
+                User.delete(user.user_id, user.user_team)
+                await ctx.send("Failed, deleting user.")
+            i += 1
+        await ctx.send("Done.")
