@@ -191,7 +191,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             github_user = get_github_user_by_id(github_token, user.user_github_id)
 
             teams_str += "\n" + user.team.team_name
-            github_username = github_user.name
+            github_username = github_user.name or github_user.login
             users_str += "\n" + username
             githubs_str += "\n" + github_username
             if not role:
