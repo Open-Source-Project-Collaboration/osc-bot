@@ -4,12 +4,13 @@ In order to create a team, the idea goes through multiple processes as follows:
 
 ## The idea voting process
 - When a member uses 
-[`#!new_idea {language} {idea_name} {idea_explanation}`](06%20-%20Member%20Interface.md#idea-proposing) 
-the bot sends a message to [the ideas channel](09%20-%20Channels.md#the-ideas-channel) containing an embed 
+[`#!new_idea`](06%20-%20Member%20Interface.md#idea-proposing), the bot prompts them to input the idea name using 
+`p: idea name`, the idea explanation using `p: idea explanation` and the programming language using `p: language`. It
+then sends the member a preview of how the message will look in [the ideas channel](09%20-%20Channels.md#the-ideas-channel).
+- The bot then sends a message to [the ideas channel](09%20-%20Channels.md#the-ideas-channel) containing an embed 
 (which it will scrape later).
 - The title of the embed is the idea name with replacing any whitespaces with a dash and removing any characters that
 are not letters.
-- The idea explanation field defaults to `N/A`.
 - The trials field shows how many times the voting for a certain idea has restarted.
 - If the bot reboots during the voting process, it will get the message creation date or the message edit date and the
 voting period to this date, then it will subtract the current date from the result to get the required waiting time and
@@ -40,12 +41,14 @@ and the Guild ID.
 [`#!add_me {github_username} {team_name}`](06%20-%20Member%20Interface.md#team-management) to replace their username.
 - If the bot reboots during the process it will resend a message to those who haven't replied and delete the old one
 - A required percentage of voters must reply with their GitHub usernames in order for the idea to get accepted, 
-this can be found in the [config table](10%20-%20Tables.md#the-config-table).
+it is calculated from the relation: `(80 - votes_number) / 100` if the votes number are less than 60 (every vote 
+decreases the required percentage by one from 80%). If the votes are more than 60, the required percentage defaults to 
+20%.
 - The bot indicates if enough voters have replied with their GitHub usernames by checking the participants message in
 the [overview channel](09%20-%20Channels.md#the-ideas-overview-channels) and the number of members that have the team
 role.
 - If the idea gets accepted:
-    - The DM message gets deleted and a new one gets sent notifying the voter to check the .
+    - The DM message gets deleted and a new one gets sent notifying the voter to check the
     [overview channel](09%20-%20Channels.md#the-ideas-overview-channels)
     - The message in the [overview channel](09%20-%20Channels.md#the-ideas-overview-channels) gets deleted and a new one
     gets sent indicating that the idea is accepted.
@@ -75,7 +78,8 @@ the channel and a leader will be chosen.
 - A member can vote for themselves to be a leader and their vote **will be counted**.
 - The leader voting process can be started manually by an admin using `#!start_leader_voting {team_name}` if a team leader
 isn't present and there isn't a voting process going on.
-- Admins will do `#!activity_check` occasionally on Saturdays and the bot will warn the inactive members.
+- Admins will do `#!activity_check` occasionally on Saturdays and the bot will warn the inactive members who haven't 
+contributed to their team repositories in a while.
 
 
 ## Side note

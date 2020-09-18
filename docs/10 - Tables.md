@@ -22,7 +22,8 @@ Do not use `set` directly without first declaring the config with `set_init`.
 - **Model name:** User
 - **Table name:** users
 - **Table logic:** A user can have multiple GitHub usernames for different teams but the same GitHub username for each
-team. The unique key isn't a certain property of a Discord user, but rather a generated `unique_id`
+team. The unique key isn't a certain property of a Discord user, but rather a generated `unique_id`. Each user row has 
+one team in [the teams table](#the-teams-table)
 - **Properties:**
     - `User.user_id`
         - The id of the specified user
@@ -30,7 +31,11 @@ team. The unique key isn't a certain property of a Discord user, but rather a ge
         - The team in which the specified user is enrolled (multiple User rows of the same user can exist for different
         teams)
     - `User.user_github`
-        - The GitHub username of the specified user in the specified team
+        - The GitHub username of the specified user in the specified team (use the github id in the code)
+    - `User.user_github_id`
+        - The GitHub id of the specified user in the specified team
+    - `User.team`
+        - A relationship that references the Team model and back populates the users property in the teams table
 - **Commands:**
     - `User.get(name, team_name)`
         - Gets the `User` with the specified `name` and `team_name`
@@ -66,3 +71,42 @@ team. The unique key isn't a certain property of a Discord user, but rather a ge
         - Gets the number of warnings for the user and if the `Warn` object of `user_id` is not found, it returns `0`
     - `Warn.delete(user_id)`
         - Removes the `Warn` row of `user_id` from the table
+
+## The teams table
+- **Model name:** Team
+- **Table name:** teams
+- **Table logic:** A team has many users in the users table
+- **Properties:**
+    - `Team.team_name` (primary key)
+        - The name of the team
+    - `Team.role_id`
+        - The id of the discord role of the team members
+    - `Team.leader_role_id`
+        - The id of the discord role of the team leader
+    - `Team.category_id`
+        - The id of the discord category of the team
+    - `Team.general_id`
+        - The id of the discord general text channel of the team
+    - `Team.voting_id`
+        - The id of the discord leader-voting text channel of the team
+    - `Team.github_id`
+        - The Github id of the team
+    - `Team.repo_id`
+        - The Github id of the repository on which the team works
+    - `Team.users`
+        - A relationship that references the User model and back populates the team property in the users table
+- **Commands:**
+    - `Team.get(team_name: str = None, github_id: int = None, category_id: int = None)`
+        - Gets the team object by either the name, the github_id or the category_id or gets all of the teams if no arguments
+        are provided
+    - `Team.get_all()`
+        - Gets a list of all the team objects
+    - `Team.set(team_name, role_id, leader_role_id, category_id, general_id, github_id, repo_id)`
+        - Sets a new team row in the database with the provided data, the voting_id defaults to -1 which means there is 
+        no leader voting channel
+    - `Team.set_voting_channel(team_name, voting_id)`
+        - Sets the leader-voting channel of a certain team
+    - `Team.delete_voting_channel(team_name)`
+        - Deletes the leader-voting channel of a certain team
+    - `Team.delete_team(team_name)`
+        - Deletes the team from the database and all the related users from the users table

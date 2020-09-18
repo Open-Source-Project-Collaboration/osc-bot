@@ -23,7 +23,7 @@ dependent on functions that exist there. All the
     * Changes the GitHub-usernames-gathering process period the bot waits before approving/declining an idea based on
     the number of users that have replied to the bot with their GitHub accounts
     
-- `#!change_github_required_percentage {new_percentage}`
+- `#!change_github_required_percentage {new_percentage}` (OUTDATED, the Github percentage is automatically calculated now)
     * Changes the required percentage of the voters that must reply with their GitHub accounts in order to approve an
     idea
 
