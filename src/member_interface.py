@@ -211,15 +211,17 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
 
     @bot.command(brief="Shows a list of teams that you can join")
     async def list_teams(ctx):
+        await ctx.send("Please wait...")
         g = Github(github_token)
         org = g.get_organization(org_name)
         teams = org.get_teams()
         embed = discord.Embed(title="Use the any of the following commands to add yourself to a specific team")
-        for team in teams:
-            github_id = team.id
-            if not Team.get(github_id=github_id):  # If the team does not exist in the teams table
+        for github_team in teams:
+            github_id = github_team.id
+            team: Team = Team.get(github_id=github_id)
+            if not team:  # If the team does not exist in the teams table
                 continue
-            embed.add_field(name=team.name, value=f'#!add_me "your github username" "{team.name}"')
+            embed.add_field(name=github_team.name, value=f'#!add_me "your github username" "{team.team_name}"')
         if not embed.fields:
             embed.title = "There are no teams available"
 

@@ -16,9 +16,9 @@ containing spaces between quotation marks.
     idea, the time the voters are given to reply to the bot with their GitHub usernames, the required percentage of the
     voters that are supposed to reply with their GitHub usernames
     
-- `#!show_teams {Optional(team_name)}` 
+- `#!list_members {Optional(team_name)}` 
     * If an argument is not provided, the command shows all the users that are enrolled in teams, their team names and
-    their GitHub usernames
+    their GitHub usernames (for administrators only)
     * If an argument is provided, the command shows the users that are enrolled in a certain team, their team name and 
     their Github usernames
     
