@@ -20,5 +20,16 @@ user warns/kicks and activity of users.
 
 ## The finished projects channel
 * **Name in config**: `finished-channel`
-* **Description of the channel**: this is a read-only channel to which the names of the finished projects and the 
-participants of them are sent after the project leader uses the `#!mark_as_finished` command.
+* **Description of the channel**: this is a read-only channel to which the repo links of the finished projects are 
+sent after the project leader uses the `#!mark_as_finished` command.
+
+## The running projects channel
+* **Name in config**: `running-channel`
+* **Description of the channel**: this is a read-only channel to which the names of the currently running projects and their 
+repo links are sent when a new team is created. The message containing the name and the link gets deleted when the project 
+is finished
+
+## The failed messages channel
+* **Name in config**: `messages-channel`
+* **Description of the channel**: this is a read-only channel in which the bots asks the idea voters to whom a DM could not be 
+sent for their GitHub usernames (Forbidden error while sending a DM)

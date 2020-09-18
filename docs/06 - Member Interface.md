@@ -22,6 +22,9 @@ containing spaces between quotation marks.
     * If an argument is provided, the command shows the users that are enrolled in a certain team, their team name and 
     their Github usernames
     
+- `#!list_teams`
+    * Shows a list of teams any user can join and the required command to join the team
+    
 - `#!help` 
     * Prints a list of the available commands.
 
@@ -35,8 +38,9 @@ containing spaces between quotation marks.
     the team name in the role, category, GitHub team and GitHub repository
 
 ## Idea proposing
-- `#!new_idea {programming_language} {idea_name} {Optional(idea_explanation)}`
-    * Proposes a new idea which the bot would send to the idea channel to be voted upon.
+- `#!new_idea`
+    * Proposes a new idea which the bot would send to the idea channel to be voted upon. The user will be guided to input 
+    the idea name, explanation and programming language.
     > Please note that the idea name must be less than 45 characters long and it shouldn't include any non-letter
     characters. The bot filters out such characters; however, try not to include them in the idea name to avoid unclear
     final idea names
