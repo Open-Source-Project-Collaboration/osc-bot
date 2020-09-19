@@ -1,6 +1,6 @@
 from sqlalchemy.orm import relationship
 
-from discord_database.db import Base, session, engine
+from db import Base, session, engine
 from sqlalchemy import Column, String, Integer, BigInteger, ForeignKey
 
 

@@ -1,4 +1,4 @@
-from discord_database.db import Base, session, engine
+from db import Base, session, engine
 from sqlalchemy import Column, String, BigInteger
 from sqlalchemy.orm import relationship
 
