@@ -1,1 +1,1 @@
-worker: python src/main.py
+worker: python src/discord_interface/main.py

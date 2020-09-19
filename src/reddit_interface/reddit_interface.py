@@ -1,5 +1,5 @@
 import discord.ext.commands
-from team import Team
+from discord_database.team import Team
 
 
 def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands related to the reddit implementation go here,
