@@ -15,7 +15,7 @@ from reddit_interface.reddit_interface import setup_reddit_interface
 from discord_database.config import Config
 
 # Get .env config
-dotenv_path = path.join(path.dirname(__file__), '../../.env')
+dotenv_path = path.join(path.dirname(__file__), '../.env')
 load_dotenv(dotenv_path)
 
 # Create bot
