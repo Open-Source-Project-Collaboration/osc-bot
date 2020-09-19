@@ -3,10 +3,10 @@ from dotenv import load_dotenv
 
 import asyncio
 
-from config import Config
-from team import Team
-from user import User
-from warn import Warn
+from discord_database.config import Config
+from discord_database.team import Team
+from discord_database.user import User
+from discord_database.warn import Warn
 
 import discord.ext.commands.errors
 
@@ -15,10 +15,11 @@ from github import Github, UnknownObjectException
 from datetime import datetime, timezone, timedelta
 import pytz
 
-from common_functions import get_gen_name, check_team_existence, clear_messages_channel, get_github_user_by_id
+from discord_interface.common_functions import get_gen_name, check_team_existence, clear_messages_channel, \
+    get_github_user_by_id
 
 # Set up .env path
-dotenv_path = path.join(path.dirname(__file__), '../.env')
+dotenv_path = path.join(path.dirname(__file__), '../../.env')
 load_dotenv(dotenv_path)
 
 # Used emojis

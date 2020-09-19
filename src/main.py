@@ -6,12 +6,13 @@ from os import path, environ
 from dotenv import load_dotenv
 
 # modules
-from member_interface import setup_member_interface
-from admin_interface import setup_admin_interface
-from leader_interface import setup_leader_interface
+from discord_interface.member_interface import setup_member_interface
+from discord_interface.admin_interface import setup_admin_interface
+from discord_interface.leader_interface import setup_leader_interface
+from reddit_interface.reddit_interface import setup_reddit_interface
 
 # Database
-from config import Config
+from discord_database.config import Config
 
 # Get .env config
 dotenv_path = path.join(path.dirname(__file__), '../.env')
@@ -25,6 +26,7 @@ bot = commands.Bot(command_prefix=prefix)
 setup_member_interface(bot)
 setup_admin_interface(bot)
 setup_leader_interface(bot)
+setup_reddit_interface(bot)
 
 # Set default configs
 Config.set_init('idea-channel', '744885478188384287')

@@ -1,8 +1,8 @@
 import re
 import discord
 
-from config import Config
-from team import Team
+from discord_database.config import Config
+from discord_database.team import Team
 
 from github import Github
 from github.NamedUser import NamedUser

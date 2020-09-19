@@ -1,13 +1,13 @@
-from config import Config
-from user import User
-from team import Team
-from warn import Warn
+from discord_database.config import Config
+from discord_database.user import User
+from discord_database.team import Team
+from discord_database.warn import Warn
 
 import discord
 from github import Github, UnknownObjectException
 
-from common_functions import delete_entire_team
-from member_interface import github_token, org_name
+from discord_interface.common_functions import delete_entire_team
+from discord_interface.member_interface import github_token, org_name
 
 
 # Setup function

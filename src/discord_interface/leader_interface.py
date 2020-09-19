@@ -3,10 +3,10 @@ from github import Github, UnknownObjectException
 
 from asyncio import TimeoutError
 
-from member_interface import github_token, org_name
-from common_functions import delete_entire_team, send_to_finished
+from discord_interface.member_interface import github_token, org_name
+from discord_interface.common_functions import delete_entire_team, send_to_finished
 
-from team import Team
+from discord_database.team import Team
 
 
 def setup_leader_interface(bot):
