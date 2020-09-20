@@ -13,6 +13,7 @@ from reddit_interface.reddit_interface import setup_reddit_interface
 
 # Database
 from discord_database.config import Config
+from reddit_database.languages import Language
 
 # Get .env config
 dotenv_path = path.join(path.dirname(__file__), '../.env')
@@ -35,6 +36,9 @@ Config.set_init('bot-channel', '747503630986248313')
 Config.set_init('finished-channel', '742442149747884165')
 Config.set_init('running-channel', '742692372848312370')
 Config.set_init('messages-channel', '755073334995058748')
+
+Language.set("general", "testosc")
+
 Config.set_init('required-votes', '5')
 Config.set_init('time-to-wait', '1209600')
 Config.set_init('github-sleep-time', '1209600')
