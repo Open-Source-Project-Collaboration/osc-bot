@@ -23,7 +23,7 @@ If you think this is a good idea, feel free to collaborate with us here: {}
 You can also join the project discussion on this discord server: {}, just upvote the rules and type 
 (#!add_me "your github username" "{}")''',
 
-          '''Hi, 
+          '''Hi
 I have started working with some other programmers on {}
 
 If you like collaborating with others you can contribute to the repository here: {}.
