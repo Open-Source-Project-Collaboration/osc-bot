@@ -6,12 +6,12 @@ import random
 from discord_database.team import Team
 from discord_interface.member_interface import github_token, org_name
 
-from reddit_interface.teams_posts_templates import titles, bodies
+from reddit_interface.teams_posts_templates import titles, bodies, footers
 from reddit_interface.reddit_functions import get_post_input
 
 
-def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands related to the reddit implementation go here,
-    # it is preferable to add functions to another file
+def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and events related
+    # to the reddit implementation go here. It is preferable to add functions to another file
     @bot.command(brief="Lets the bot make a reddit post about the team")
     async def reddit_post(ctx: discord.ext.commands.Context):
         category: discord.CategoryChannel = ctx.channel.category  # Gets the category in which the command was used
@@ -42,4 +42,5 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands relat
         prompt_body = random.choice(bodies).format(*formatting)
         body_embed: discord.Embed = discord.Embed(title="Post body", description=prompt_body)
         body = await get_post_input(bot, ctx, bodies, body_embed, *formatting)
+        body += "\n\n" + random.choice(footers)  # Adds a final statement to the end of the post
         pass

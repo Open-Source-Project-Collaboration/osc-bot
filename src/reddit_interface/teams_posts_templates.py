@@ -30,3 +30,9 @@ If you like collaborating with others you can contribute to the repository here:
 The project discussion is done here: {}. You can join, upvote the rules and type 
 (#!add_me "your github username" "{}") to be added'''
           ]
+
+# Arg 1: Discord username of the poster along with the discord discriminator
+# Arg 2: Discord username of the bot along with the discord discriminator
+footers = ['''This post was made through Discord by {} and automated and submitted to reddit by {}. 
+This is not a self promotional post as the objective behind this post is to help programmers collaborate with each 
+other''']
