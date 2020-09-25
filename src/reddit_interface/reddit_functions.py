@@ -29,20 +29,20 @@ async def get_post_input(bot: discord.ext.commands.Bot, ctx, templates_list, emb
         if "another" in message.content.lower():
             if len(templates_list) < 2:
                 await ctx.send("Other templates are not available at the moment.")
-                await get_post_input(bot, ctx, templates_list, embed, *formatting)
+                return await get_post_input(bot, ctx, templates_list, embed, *formatting)
             while True:
                 new = random.choice(templates_list).format(*formatting)
                 if new != embed.description:
                     break
             embed = discord.Embed(title=embed.title, description=new)
-            await get_post_input(bot, ctx, templates_list, embed, *formatting)
+            return await get_post_input(bot, ctx, templates_list, embed, *formatting)
 
         elif "create" in message.content.lower():
             return await get_new_template(bot, ctx)
 
         else:
             information = message.content[2:].lstrip()
-            return information
+            return embed.description.replace("...", information)
 
     except asyncio.TimeoutError:
         await ctx.send("Your reddit post has been cancelled for not responding")
@@ -50,6 +50,7 @@ async def get_post_input(bot: discord.ext.commands.Bot, ctx, templates_list, emb
 
 
 async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.commands.Context, title, body):
+    embed = discord.Embed(title=title, description=body)
     message = await ctx.send("Here is how your post will look like on reddit.\n"
-                             "Use `r: confirm`")
+                             "Use `r: confirm` to confirm", embed=embed)  # TODO: continue
     pass

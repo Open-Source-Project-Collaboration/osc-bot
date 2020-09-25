@@ -7,7 +7,7 @@ from discord_database.team import Team
 from discord_interface.member_interface import github_token, org_name
 
 from reddit_interface.teams_posts_templates import titles, bodies, footers
-from reddit_interface.reddit_functions import get_post_input
+from reddit_interface.reddit_functions import get_post_input, show_post_preview
 
 
 def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and events related
@@ -23,8 +23,10 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and e
 
         prompt_title = random.choice(titles).format("...")  # Chooses a random title from the title templates
         title_embed: discord.Embed = discord.Embed(title="Post title", description=prompt_title)
-        title = await get_post_input(bot, ctx, titles, title_embed, "...")
         # Asks the user to fill out the required information
+        title = await get_post_input(bot, ctx, titles, title_embed, "...")
+        if not title:
+            return
 
         # Log into Github to get the repo link
         g = Github(github_token)
@@ -42,5 +44,14 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and e
         prompt_body = random.choice(bodies).format(*formatting)
         body_embed: discord.Embed = discord.Embed(title="Post body", description=prompt_body)
         body = await get_post_input(bot, ctx, bodies, body_embed, *formatting)
-        body += "\n\n" + random.choice(footers)  # Adds a final statement to the end of the post
+        if not body:
+            return
+
+        # Add a footer to the post body
+        discord_user = ctx.author.name + "#" + ctx.author.discriminator
+        discord_bot = bot.user.name + "#" + bot.user.discriminator
+        body += "\n\n" + random.choice(footers).format(discord_user, discord_bot)
+
+        # Shows the preview of the post to be sent to the reddit channel
+        await show_post_preview(bot, ctx, title, body)
         pass
