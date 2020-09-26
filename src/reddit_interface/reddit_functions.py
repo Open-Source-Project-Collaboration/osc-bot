@@ -65,10 +65,11 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
     await ctx.send("Please type `r: [language name]`, where [language name] is "
                    "the programming language that is used in the project")
 
-    programming_language = await wait_for_reddit_message(bot, ctx)
+    programming_language_message = await wait_for_reddit_message(bot, ctx)
+    programming_language = programming_language_message.content[2:].lstrip().lower()
     # Tries to find a subreddit in the database that corresponds to the programming language
     language_subreddits = Language.get_all_subreddits(programming_language) or Language.get_all_subreddits('general')
-    language_subreddit = 'testosc' if not language_subreddits else random.choice(language_subreddits)
+    language_subreddit = 'testosc' if not language_subreddits else random.choice(language_subreddits).subreddit
 
     embed = discord.Embed(title=title, description=body)
     message = await ctx.send("Here is how your post will look like on reddit.\n"
