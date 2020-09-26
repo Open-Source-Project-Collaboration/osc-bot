@@ -975,25 +975,26 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
             message = await idea_channel.fetch_message(reaction.message_id)
         else:
             message = await overview_channel.fetch_message(reaction.message_id)
-        if message.author.bot and message.embeds:  # If the message reacted to is by the bot and contains an embed
-            # ie: it is an idea message
-            embed = message.embeds[0]
+        if not message.author.bot or not message.embeds:
+            # If the message reacted to is not by the bot and doesn't contain an embed. ie: it is not an idea message
+            return
+        embed = message.embeds[0]
 
-            if reaction.emoji.name == THUMBS_UP_EMOJI:
-                return
+        if reaction.emoji.name == THUMBS_UP_EMOJI:
+            return
 
-            elif reaction.emoji.name == RESTART_EMOJI and reaction.member.bot:
-                # if it is a restart emoji put by the bot, restart the voting period
-                idea_name = embed.title
-                # We remove the reaction in case the voting period gets restarted again
-                await message.remove_reaction(reaction.emoji, reaction.member)
-                if reaction.channel_id == idea_id:
-                    await continue_voting(message, idea_name)
-                else:
-                    await continue_githubs(idea_name, message)
+        elif reaction.emoji.name == RESTART_EMOJI and reaction.member.bot:
+            # if it is a restart emoji put by the bot, restart the voting period
+            idea_name = embed.title
+            # We remove the reaction in case the voting period gets restarted again
+            await message.remove_reaction(reaction.emoji, reaction.member)
+            if reaction.channel_id == idea_id:
+                await continue_voting(message, idea_name)
+            else:
+                await continue_githubs(idea_name, message)
 
-            else:  # If it is another emoji, remove the reaction
-                await message.remove_reaction(reaction.emoji, reaction.member)
+        else:  # If it is another emoji, remove the reaction
+            await message.remove_reaction(reaction.emoji, reaction.member)
 
     # Watch messages addition to check for sent GitHub accounts
     @bot.event
