@@ -6,6 +6,7 @@ import random
 from reddit_database.languages import Language
 
 
+# Waits for the user to send a message starting with r:
 async def wait_for_reddit_message(bot, ctx):
     def check(m: discord.Message):
         return m.author == ctx.author and m.channel == ctx.channel and 'r:' in m.content.lower()
@@ -18,6 +19,7 @@ async def wait_for_reddit_message(bot, ctx):
         return None
 
 
+# When the user decides to create their own post instead of using a ready template
 async def get_new_template(bot, ctx):
     await ctx.send("To create your own template, use `r: [template content]` without the '[', ']'")
 
@@ -28,6 +30,7 @@ async def get_new_template(bot, ctx):
     return message.content[2:].lstrip()
 
 
+# Get the required data in the post, whether the title or the body
 async def get_post_input(bot: discord.ext.commands.Bot, ctx, templates_list, embed: discord.Embed, *formatting):
     await ctx.send(ctx.author.mention + ", please replace the ... with the appropriate information.\n"
                                         "Use `r: [information]` without the '[', ']'\n"
@@ -58,6 +61,7 @@ async def get_post_input(bot: discord.ext.commands.Bot, ctx, templates_list, emb
         return embed.description.replace("...", response)
 
 
+# Shows a preview of how the post will look like to the user
 async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.commands.Context, title, body,
                             subreddit=None):
     await ctx.send("Please type `r: [language name]`, where [language name] is "
@@ -81,10 +85,12 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
               f"The submission will be made in r/{language_subreddit}\n" \
               "Use `r: confirm` to confirm\n" \
               "Use `r: cancel` to cancel the submission"
+    # Allows the user to change the target subreddit if more than one programming language is found
     if len(language_subreddits) > 1:
         content += "\nUse `r: another` to change the subreddit"
 
     await ctx.send(content, embed=embed)
+
     response_message = await wait_for_reddit_message(bot, ctx)
     if not response_message:
         return
@@ -93,7 +99,8 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
 
     if response == "another" and len(language_subreddits) > 1:
         return await show_post_preview(bot, ctx, title, body, subreddit=language_subreddit)
-    elif response == "another":
+    elif response == "another":  # When the user types r: another while there is only one subreddit available for this
+        # language
         await ctx.send("You can't change the subreddit for this case")
         return await show_post_preview(bot, ctx, title, body)
     elif response == "confirm":
