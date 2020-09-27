@@ -104,7 +104,7 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
         await ctx.send("You can't change the subreddit for this case")
         return await show_post_preview(bot, ctx, title, body)
     elif response == "confirm":
-        return title, body, language_subreddit
+        return title, body, language_subreddit, language_subreddits
     elif response == "cancel":
         return
     else:
