@@ -57,5 +57,4 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and e
         if not post_data:
             return await ctx.send(ctx.author.mention + ", your post has been cancelled.")
         title, body, subreddit = post_data
-        print(title, body, subreddit)
         pass

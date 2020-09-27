@@ -71,7 +71,7 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
     if not programming_language_message:
         return
 
-    programming_language = programming_language_message.content[2:].lstrip().lower()
+    programming_language = programming_language_message.content[2:].strip().lower()
 
     # Tries to find a subreddit in the database that corresponds to the programming language
     language_subreddits = Language.get_all_subreddits(programming_language) or Language.get_all_subreddits('general')
