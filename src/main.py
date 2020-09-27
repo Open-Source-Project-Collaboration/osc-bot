@@ -45,6 +45,7 @@ Config.set_init('github-sleep-time', '1209600')
 Config.set_init('github-required-percentage', '0.7')
 
 Language.set("general", "testosc")
+Language.set("general", "thisisaninvalidsubredditlol")
 
 # Run bot
 env = environ.get('ENV')

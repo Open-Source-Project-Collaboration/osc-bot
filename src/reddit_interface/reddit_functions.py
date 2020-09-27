@@ -82,7 +82,7 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
               "Use `r: confirm` to confirm\n" \
               "Use `r: cancel` to cancel the submission"
     if len(language_subreddits) > 1:
-        content += "Use `r: another` to change the subreddit\n"
+        content += "\nUse `r: another` to change the subreddit"
 
     await ctx.send(content, embed=embed)
     response_message = await wait_for_reddit_message(bot, ctx)
