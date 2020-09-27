@@ -53,5 +53,9 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and e
         body += "\n\n" + random.choice(footers).format(discord_user, discord_bot)
 
         # Shows the preview of the post to be sent to the reddit channel
-        await show_post_preview(bot, ctx, title, body)
+        post_data = await show_post_preview(bot, ctx, title, body)
+        if not post_data:
+            return await ctx.send(ctx.author.mention + ", your post has been cancelled.")
+        title, body, subreddit = post_data
+        print(title, body, subreddit)
         pass
