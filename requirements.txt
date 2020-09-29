@@ -13,3 +13,5 @@ gunicorn==20.0.4
 
 PyGithub~=1.53
 pytz~=2020.1
+praw~=7.1.0
+prawcore~=1.5.0

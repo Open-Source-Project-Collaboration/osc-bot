@@ -1,5 +1,6 @@
 import discord.ext.commands
 from github import Github
+import praw
 
 import random
 
@@ -8,6 +9,18 @@ from discord_interface.member_interface import github_token, org_name
 
 from reddit_interface.teams_posts_templates import titles, bodies, footers
 from reddit_interface.reddit_functions import get_post_input, show_post_preview
+
+from os import path, environ
+from dotenv import load_dotenv
+
+dotenv_path = path.join(path.dirname(__file__), '../.env')
+load_dotenv(dotenv_path)
+
+client_id = environ.get("CLIENT_ID")
+client_secret = environ.get("CLIENT_SECRET")
+password = environ.get("PASSWORD")
+username = environ.get("USERNAME")
+USER_AGENT = "discord:OSC (by u/OscOrganizer)"
 
 
 def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and events related

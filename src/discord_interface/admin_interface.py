@@ -5,9 +5,14 @@ from discord_database.warn import Warn
 
 import discord
 from github import Github, UnknownObjectException
+import praw
+import prawcore.exceptions
 
 from discord_interface.common_functions import delete_entire_team
 from discord_interface.member_interface import github_token, org_name
+
+from reddit_database.languages import Language
+from reddit_interface.reddit_interface import client_id, client_secret, username, password, USER_AGENT
 
 
 # Setup function
@@ -260,3 +265,37 @@ def setup_admin_interface(bot):
                 await ctx.send("Failed, deleting user.")
             i += 1
         await ctx.send("Done.")
+
+    @bot.command(hidden=True, brief="Adds a new subreddit for a certain language")
+    async def add_subreddit(ctx, language, subreddit_name: str):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+        await ctx.send("Please wait...")
+        subreddit_name.replace("r/", "")
+
+        reddit = praw.Reddit(
+            client_id=client_id,
+            client_secret=client_secret,
+            user_agent=USER_AGENT,
+            username=username,
+            password=password
+        )
+        try:
+            reddit.subreddit(subreddit_name).fullname
+        except prawcore.exceptions.OAuthException:
+            return await ctx.send("Could not add this subreddit")
+
+        Language.set(language, subreddit_name)
+        await ctx.send("The subreddit has been added successfully")
+
+    @bot.command(hidden=True, brief="Lists available subreddits for languages")
+    async def list_subreddits(ctx, language_name):
+        language_instances = Language.get_all_subreddits(language_name)
+        if not language_instances:
+            return await ctx.send("No subreddits were found for the specified language")
+
+        content = '```\n'
+        for language in language_instances:
+            content += "r/" + language.subreddit + "\n"
+        content += '```'
+        await ctx.send(content)
