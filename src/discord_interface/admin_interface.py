@@ -5,9 +5,14 @@ from discord_database.warn import Warn
 
 import discord
 from github import Github, UnknownObjectException
+import praw
+import prawcore.exceptions
 
 from discord_interface.common_functions import delete_entire_team
 from discord_interface.member_interface import github_token, org_name
+
+from reddit_database.languages import Language
+from reddit_interface.reddit_interface import client_id, client_secret, username, password, USER_AGENT
 
 
 # Setup function
@@ -259,4 +264,40 @@ def setup_admin_interface(bot):
                 User.delete(user.user_id, user.user_team)
                 await ctx.send("Failed, deleting user.")
             i += 1
+        await ctx.send("Done.")
+
+    @bot.command(hidden=True, brief="Adds a new subreddit for a certain language")
+    async def add_subreddit(ctx, language, subreddit_name: str):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+        await ctx.send("Please wait...")
+        subreddit_name = subreddit_name.replace("r/", "")
+        if Language.get(language, subreddit_name):
+            return await ctx.send("The subreddit already exists for this language.")
+
+        reddit = praw.Reddit(
+            client_id=client_id,
+            client_secret=client_secret,
+            user_agent=USER_AGENT,
+            username=username,
+            password=password
+        )
+        try:
+            reddit.subreddit(subreddit_name).fullname
+        except prawcore.exceptions.NotFound and prawcore.exceptions.Redirect:
+            return await ctx.send("Could not add this subreddit")
+
+        Language.set(language, subreddit_name)
+        await ctx.send("The subreddit has been added successfully")
+
+    @bot.command(hidden=True, brief="Deletes a subreddit for a certain language")
+    async def delete_subreddit(ctx, language_name, subreddit_name):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+        subreddit_name = subreddit_name.replace("r/", "")
+
+        language = Language.get(language_name, subreddit_name)
+        if not language:
+            return await ctx.send("The subreddit does not exist for this language.")
+        Language.delete(language_name, subreddit_name)
         await ctx.send("Done.")

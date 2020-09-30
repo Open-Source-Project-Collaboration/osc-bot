@@ -30,6 +30,11 @@ class Language(Base):
         return language if language else None
 
     @staticmethod
+    def get_all():
+        languages = session.query(Language)
+        return languages if languages else None
+
+    @staticmethod
     def set(name, subreddit):  # Sets a language to a certain subreddit
         language = Language.get(name, subreddit)
         if language:
