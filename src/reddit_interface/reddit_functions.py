@@ -1,9 +1,12 @@
-import discord.ext.commands
-
 import asyncio
 import random
 
+import discord.ext.commands
+import praw
+import prawcore.exceptions
+
 from reddit_database.languages import Language
+from reddit_interface.reddit_configuration import client_secret, client_id, username, password, USER_AGENT
 
 
 # Waits for the user to send a message starting with r:
@@ -79,13 +82,26 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
         language_subreddit = 'testosc' if not language_subreddits else random.choice(language_subreddits).subreddit
         if language_subreddit != subreddit:
             break
+        elif len(language_subreddits) < 2:  # This is reached when the bot fails to post in an initial subreddit
+            # and there are no more subreddits to post in
+            return await ctx.send("Couldn't find a valid subreddit to post in, please contact an administrator")
 
+    # Checks ability to post in the subreddit
+    reddit = praw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=USER_AGENT,
+                         username=username, password=password)
+    try:
+        reddit.subreddit(language_subreddit).fullname
+    except (prawcore.exceptions.NotFound, prawcore.exceptions.Redirect):
+        return await show_post_preview(bot, ctx, title, body, subreddit=language_subreddit)
+
+    # Shows the post preview
     embed = discord.Embed(title=title, description=body)
     content = "Here is how your post will look like on reddit.\n" \
               f"The submission will be made in r/{language_subreddit}\n" \
               "Use `r: confirm` to confirm\n" \
               "Use `r: cancel` to cancel the submission"
-    # Allows the user to change the target subreddit if more than one programming language is found
+
+    # Allows the user to change the target subreddit if more than one language instance is found
     if len(language_subreddits) > 1:
         content += "\nUse `r: another` to change the subreddit"
 
@@ -110,5 +126,3 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
     else:
         await ctx.send("Invalid option.")
         return await show_post_preview(bot, ctx, title, body)
-
-    pass
