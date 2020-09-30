@@ -9,6 +9,9 @@ from reddit_database.languages import Language
 from reddit_interface.reddit_functions import get_post_input, show_post_preview
 from reddit_interface.teams_posts_templates import titles, bodies, footers
 
+title_limit = 250
+body_limit = 20000
+
 
 def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and events related
     # to the reddit implementation go here. It is preferable to add functions to another file
@@ -27,6 +30,10 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and e
         title = await get_post_input(bot, ctx, titles, title_embed, "...")
         if not title:
             return
+        if len(title) > title_limit:
+            await ctx.send(ctx.author.mention + f", the title length must be less than {title_limit} characters long. "
+                                                f"Yours was {len(title)} characters long")
+            return await reddit_post(ctx)
 
         # Log into Github to get the repo link
         g = Github(github_token)
@@ -46,6 +53,10 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and e
         body = await get_post_input(bot, ctx, bodies, body_embed, *formatting)
         if not body:
             return
+        if len(body) > body_limit:
+            await ctx.send(ctx.author.mention + f", the post body must be less than {body_limit} characters long. "
+                                                f"Yours was {len(body)} characters long")
+            return await reddit_post(ctx)
 
         # Add a footer to the post body
         discord_user = ctx.author.name + "#" + ctx.author.discriminator

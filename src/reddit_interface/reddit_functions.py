@@ -66,11 +66,13 @@ async def get_post_input(bot: discord.ext.commands.Bot, ctx, templates_list, emb
 
 # Shows a preview of how the post will look like to the user
 async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.commands.Context, title, body,
-                            subreddit=None):
-    await ctx.send("Please type `r: [language name]`, where [language name] is "
-                   "the programming language that is used in the project")
+                            subreddit=None, programming_language_message=None):
 
-    programming_language_message = await wait_for_reddit_message(bot, ctx)
+    if not programming_language_message:
+        await ctx.send("Please type `r: [language name]`, where [language name] is "
+                       "the programming language that is used in the project")
+
+    programming_language_message = programming_language_message or await wait_for_reddit_message(bot, ctx)
     if not programming_language_message:
         return
 
@@ -84,7 +86,8 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
             break
         elif len(language_subreddits) < 2:  # This is reached when the bot fails to post in an initial subreddit
             # and there are no more subreddits to post in
-            return await ctx.send("Couldn't find a valid subreddit to post in, please contact an administrator")
+            await ctx.send("Couldn't find a valid subreddit to post in, please contact an administrator")
+            return
 
     # Checks ability to post in the subreddit
     reddit = praw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=USER_AGENT,
@@ -92,7 +95,8 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
     try:
         reddit.subreddit(language_subreddit).fullname
     except (prawcore.exceptions.NotFound, prawcore.exceptions.Redirect):
-        return await show_post_preview(bot, ctx, title, body, subreddit=language_subreddit)
+        return await show_post_preview(bot, ctx, title, body, subreddit=language_subreddit,
+                                       programming_language_message=programming_language_message)
 
     # Shows the post preview
     embed = discord.Embed(title=title, description=body)
