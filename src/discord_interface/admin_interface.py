@@ -12,7 +12,7 @@ from discord_interface.common_functions import delete_entire_team
 from discord_interface.member_interface import github_token, org_name
 
 from reddit_database.languages import Language
-from reddit_interface.reddit_interface import client_id, client_secret, username, password, USER_AGENT
+from reddit_interface.reddit_configuration import client_secret, client_id, username, password, USER_AGENT
 
 
 # Setup function
@@ -284,7 +284,7 @@ def setup_admin_interface(bot):
         )
         try:
             reddit.subreddit(subreddit_name).fullname
-        except prawcore.exceptions.NotFound and prawcore.exceptions.Redirect:
+        except (prawcore.exceptions.NotFound, prawcore.exceptions.Redirect):
             return await ctx.send("Could not add this subreddit")
 
         Language.set(language, subreddit_name)
