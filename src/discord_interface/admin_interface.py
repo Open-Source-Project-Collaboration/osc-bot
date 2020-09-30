@@ -284,7 +284,7 @@ def setup_admin_interface(bot):
         )
         try:
             reddit.subreddit(subreddit_name).fullname
-        except prawcore.exceptions.NotFound:
+        except prawcore.exceptions.NotFound and prawcore.exceptions.Redirect:
             return await ctx.send("Could not add this subreddit")
 
         Language.set(language, subreddit_name)
