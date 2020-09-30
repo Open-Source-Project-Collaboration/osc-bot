@@ -9,6 +9,7 @@ from discord_interface.member_interface import github_token, org_name
 
 from reddit_interface.teams_posts_templates import titles, bodies, footers
 from reddit_interface.reddit_functions import get_post_input, show_post_preview
+from reddit_database.languages import Language
 
 from os import path, environ
 from dotenv import load_dotenv
@@ -18,8 +19,8 @@ load_dotenv(dotenv_path)
 
 client_id = environ.get("CLIENT_ID")
 client_secret = environ.get("CLIENT_SECRET")
-password = environ.get("PASSWORD")
-username = environ.get("USERNAME")
+password = environ.get("REDDIT_PASSWORD")
+username = environ.get("REDDIT_USERNAME")
 USER_AGENT = "discord:OSC (by u/OscOrganizer)"
 
 
@@ -71,3 +72,21 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and e
             return await ctx.send(ctx.author.mention + ", your post has been cancelled.")
         title, body, subreddit, language_instances = post_data
         pass
+
+    @bot.command(hidden=True, brief="Lists available subreddits for languages")
+    async def list_subreddits(ctx, language_name=""):
+        if language_name:
+            language_instances = Language.get_all_subreddits(language_name)
+            content = f'All the subreddits available for {language_name}'
+        else:
+            language_instances = Language.get_all()
+            content = "All the subreddits available"
+
+        if not language_instances:
+            return await ctx.send("No subreddits were found for the specified language")
+
+        content += '```\n'
+        for language in language_instances:
+            content += f"r/{language.subreddit} | {language.name}\n"
+        content += '```'
+        await ctx.send(content)

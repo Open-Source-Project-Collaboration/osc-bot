@@ -271,7 +271,9 @@ def setup_admin_interface(bot):
         if not ctx.author.guild_permissions.administrator:
             return await you_are_not_admin(ctx)
         await ctx.send("Please wait...")
-        subreddit_name.replace("r/", "")
+        subreddit_name = subreddit_name.replace("r/", "")
+        if Language.get(language, subreddit_name):
+            return await ctx.send("The subreddit already exists for this language.")
 
         reddit = praw.Reddit(
             client_id=client_id,
@@ -282,20 +284,20 @@ def setup_admin_interface(bot):
         )
         try:
             reddit.subreddit(subreddit_name).fullname
-        except prawcore.exceptions.OAuthException:
+        except prawcore.exceptions.NotFound:
             return await ctx.send("Could not add this subreddit")
 
         Language.set(language, subreddit_name)
         await ctx.send("The subreddit has been added successfully")
 
-    @bot.command(hidden=True, brief="Lists available subreddits for languages")
-    async def list_subreddits(ctx, language_name):
-        language_instances = Language.get_all_subreddits(language_name)
-        if not language_instances:
-            return await ctx.send("No subreddits were found for the specified language")
+    @bot.command(hidden=True, brief="Deletes a subreddit for a certain language")
+    async def delete_subreddit(ctx, language_name, subreddit_name):
+        if not ctx.author.guild_permissions.administrator:
+            return await you_are_not_admin(ctx)
+        subreddit_name = subreddit_name.replace("r/", "")
 
-        content = '```\n'
-        for language in language_instances:
-            content += "r/" + language.subreddit + "\n"
-        content += '```'
-        await ctx.send(content)
+        language = Language.get(language_name, subreddit_name)
+        if not language:
+            return await ctx.send("The subreddit does not exist for this language.")
+        Language.delete(language_name, subreddit_name)
+        await ctx.send("Done.")
