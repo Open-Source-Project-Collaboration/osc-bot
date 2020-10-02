@@ -137,7 +137,7 @@ def setup_member_interface(bot: discord.ext.commands.Bot):
     @bot.command(brief="Shows all the channels that are related to the voting process")
     async def channels(ctx):
         chans = Config.channels()
-        msgs = [f'{name} is <#{chans[name]}>' for name in chans.keys()]
+        msgs = [f'The {name.replace("-", " ")} is <#{chans[name]}>' for name in chans.keys()]
         msg = '\n'.join(msgs)
         await ctx.send(msg)
 

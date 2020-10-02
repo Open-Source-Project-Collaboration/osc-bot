@@ -6,7 +6,7 @@ from github import Github
 from discord_database.team import Team
 from discord_interface.member_interface import github_token, org_name
 from reddit_database.languages import Language
-from reddit_interface.reddit_functions import get_post_input, show_post_preview
+from reddit_interface.reddit_functions import get_post_input, show_post_preview, wait_for_approval
 from reddit_interface.teams_posts_templates import titles, bodies, footers
 
 title_limit = 250
@@ -67,8 +67,13 @@ def setup_reddit_interface(bot: discord.ext.commands.Bot):  # Bot commands and e
         post_data = await show_post_preview(bot, ctx, title, body)
         if not post_data:
             return await ctx.send(ctx.author.mention + ", your post has been cancelled.")
-        title, body, subreddit, language_instances = post_data
-        pass
+        title, body, subreddit_name, language_instances = post_data
+
+        # If the user is an admin or team leader, post directly on reddit
+        if ctx.author.guild_permissions.administrator or discord.utils.get(ctx.author.roles, id=team.leader_role_id):
+            await wait_for_approval(bot, ctx, title, body, subreddit_name)  # TODO: Set up to post directly on reddit
+        else:  # Wait for an admin or team leader to react with a thumbs up
+            await wait_for_approval(bot, ctx, title, body, subreddit_name)
 
     @bot.command(hidden=True, brief="Lists available subreddits for languages")
     async def list_subreddits(ctx, language_name=""):

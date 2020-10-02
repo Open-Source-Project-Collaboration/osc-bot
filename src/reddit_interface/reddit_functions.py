@@ -8,6 +8,9 @@ import prawcore.exceptions
 from reddit_database.languages import Language
 from reddit_interface.reddit_configuration import client_secret, client_id, username, password, USER_AGENT
 
+from discord_database.config import Config
+from discord_interface.member_interface import THUMBS_UP_EMOJI
+
 
 # Waits for the user to send a message starting with r:
 async def wait_for_reddit_message(bot, ctx):
@@ -61,13 +64,13 @@ async def get_post_input(bot: discord.ext.commands.Bot, ctx, templates_list, emb
         return await get_new_template(bot, ctx)
 
     else:
-        return embed.description.replace("...", response)
+        information = response[0].lower() + response[1:]
+        return embed.description.replace("...", information)
 
 
 # Shows a preview of how the post will look like to the user
 async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.commands.Context, title, body,
                             subreddit=None, programming_language_message=None):
-
     if not programming_language_message:
         await ctx.send("Please type `r: [language name]`, where [language name] is "
                        "the programming language that is used in the project")
@@ -130,3 +133,19 @@ async def show_post_preview(bot: discord.ext.commands.Bot, ctx: discord.ext.comm
     else:
         await ctx.send("Invalid option.")
         return await show_post_preview(bot, ctx, title, body)
+
+
+# Sends the post to the pending reddit channel to be approved by an admin/leader
+async def wait_for_approval(bot: discord.ext.commands.Bot, ctx: discord.ext.commands.Context,
+                            title, body, subreddit_name):
+    pending_channel_id = int(Config.get('reddit-pending-channel'))
+    pending_channel = bot.get_channel(pending_channel_id)
+    embed = discord.Embed(title=title, description=body).set_footer(text=f"r/{subreddit_name}")
+    message = await pending_channel.send(f"{ctx.author.mention} wants to make a submission on r/{subreddit_name}\n"
+                                         f"An admin or team leader needs to approve the submission by reacting with "
+                                         f"a thumbs up for the submission to be accepted\n"
+                                         f"Request submission edits om the appropriate reddit posts "
+                                         f"discussion channel\n"
+                                         f"The author of the pending submission can edit it using #!edit_post",
+                                         embed=embed)
+    await message.add_reaction(THUMBS_UP_EMOJI)
