@@ -1,5 +1,6 @@
 # api's
 from discord.ext import commands
+import discord
 
 # dotenv
 from os import path, environ
@@ -21,7 +22,8 @@ load_dotenv(dotenv_path)
 
 # Create bot
 prefix = '#!'
-bot = commands.Bot(command_prefix=prefix)
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix=prefix, intents=intents)
 
 # Setup interfaces
 setup_member_interface(bot)
